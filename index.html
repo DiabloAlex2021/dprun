@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>dp.AI LA Run</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css?v=unified-art-2026-07-10-4" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="dp.AI LA Run game">
+      <canvas
+        id="game"
+        width="1280"
+        height="720"
+        aria-label="Side-scrolling platform game canvas"
+      ></canvas>
+      <button class="reset-btn" type="button" data-control="reset" aria-label="Reset game">⟲ Reset</button>
+      <div class="mobile-controls" aria-label="Touch controls">
+        <div class="mobile-controls__cluster" aria-label="Movement">
+          <button class="touch-btn touch-btn--round" type="button" data-control="left" aria-label="Move left">‹</button>
+          <button class="touch-btn touch-btn--round" type="button" data-control="right" aria-label="Move right">›</button>
+        </div>
+        <div class="mobile-controls__cluster mobile-controls__cluster--actions" aria-label="Actions">
+          <button class="touch-btn touch-btn--pill" type="button" data-control="down" aria-label="Down">Down</button>
+          <button class="touch-btn touch-btn--pill" type="button" data-control="start" aria-label="Start or restart">Start</button>
+          <button class="touch-btn touch-btn--jump" type="button" data-control="jump" aria-label="Jump">Jump</button>
+        </div>
+      </div>
+    </main>
+    <script src="script.js?v=unified-art-2026-07-10-4"></script>
+  </body>
+</html>
