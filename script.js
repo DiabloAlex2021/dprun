@@ -25,7 +25,7 @@
   const PLAYER_W = 72;
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
-  const BUILD_ID = "hotdog-sausage-2026-07-13-4";
+  const BUILD_ID = "latte-growth-2026-07-13-5";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -426,6 +426,7 @@
       jumpStartedAt: -1,
       jumpStartY: -1,
       checkpointX: PLAYER_START_X,
+      poweredUp: false,
     };
     state.blocks = level.blocks;
     state.collectibles = level.collectibles;
@@ -447,7 +448,9 @@
     const JUMP_HIT_PICKUP_Y = 296;
 
     function block(x, y, type = "brick", content = null) {
-      blocks.push({ x, y: y - TILE, w: TILE, h: TILE, type, content, hit: false, bump: 0 });
+      const item = { x, y: y - TILE, w: TILE, h: TILE, type, content, hit: false, bump: 0, powerLatte: false };
+      blocks.push(item);
+      return item;
     }
 
     function latte(x, y, source = "field") {
@@ -477,22 +480,23 @@
     }
 
     function buildSection(offset) {
-      block(624 + offset, JUMP_HIT_BLOCK_Y, "question", "latte");
+      const powerLatteCandidates = [];
+      powerLatteCandidates.push(block(624 + offset, JUMP_HIT_BLOCK_Y, "question", "latte"));
       block(840 + offset, STEP_BLOCK_Y, "brick");
       block(960 + offset, HIGH_REWARD_BLOCK_Y, "brick");
       block(1024 + offset, HIGH_REWARD_BLOCK_Y, "question", "ball");
       block(1088 + offset, HIGH_REWARD_BLOCK_Y, "brick");
-      block(1210 + offset, JUMP_HIT_BLOCK_Y, "question", "latte");
+      powerLatteCandidates.push(block(1210 + offset, JUMP_HIT_BLOCK_Y, "question", "latte"));
       block(1392 + offset, STEP_BLOCK_Y, "brick");
       block(1528 + offset, HIGH_REWARD_BLOCK_Y, "latteBlock");
       block(1592 + offset, HIGH_REWARD_BLOCK_Y, "latteBlock");
       block(1764 + offset, HIGH_REWARD_BLOCK_Y, "question", "ball");
       block(1936 + offset, STEP_BLOCK_Y, "brick");
-      block(2092 + offset, 386, "question", "latte");
+      powerLatteCandidates.push(block(2092 + offset, 386, "question", "latte"));
       block(2156 + offset, 386, "brick");
       block(2220 + offset, 386, "brick");
       block(2490 + offset, 320, "brick");
-      block(2554 + offset, 320, "question", "latte");
+      powerLatteCandidates.push(block(2554 + offset, 320, "question", "latte"));
       block(2618 + offset, 320, "brick");
       block(2788 + offset, STEP_BLOCK_Y, "brick");
       block(2960 + offset, HIGH_REWARD_BLOCK_Y, "latteBlock");
@@ -500,7 +504,10 @@
       block(3124 + offset, 360, "brick");
       block(3188 + offset, 360, "brick");
       block(3392 + offset, STEP_BLOCK_Y, "brick");
-      block(3512 + offset, HIGH_REWARD_BLOCK_Y, "question", "latte");
+      powerLatteCandidates.push(block(3512 + offset, HIGH_REWARD_BLOCK_Y, "question", "latte"));
+
+      const powerLatteBlock = powerLatteCandidates[Math.floor(Math.random() * powerLatteCandidates.length)];
+      powerLatteBlock.powerLatte = true;
 
       latte(712 + offset, JUMP_HIT_PICKUP_Y);
       latte(1616 + offset, HIGH_REWARD_PICKUP_Y);
@@ -877,6 +884,7 @@
       spin: 0,
       bob: 0,
       emerging: 0.32,
+      powerUp: Boolean(item.powerLatte),
     };
     state.collectibles.push(spawned);
     burst(item.x + item.w / 2, item.y, item.content === "ball" ? "#f7f7f7" : "#bde87d", 12);
@@ -998,8 +1006,14 @@
           item.taken = true;
           state.lattes += 1;
           state.score += 150;
-          toast("Matcha latte collected");
-          burst(item.x + item.w / 2, item.y + item.h / 2, "#c3f06e", 16);
+          if (item.powerUp) {
+            player.poweredUp = true;
+            toast("Latte power: 2x size");
+            burst(item.x + item.w / 2, item.y + item.h / 2, "#ffd84a", 28);
+          } else {
+            toast("Matcha latte collected");
+            burst(item.x + item.w / 2, item.y + item.h / 2, "#c3f06e", 16);
+          }
         }
       }
     }
@@ -1229,7 +1243,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 4,
+      version: 5,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1256,7 +1270,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 4 ? snapshot : null;
+      return snapshot && snapshot.version === 5 ? snapshot : null;
     } catch {
       return null;
     }
@@ -1309,6 +1323,7 @@
       jumpStartedAt: -1,
       jumpStartY: -1,
       checkpointX: Math.max(128, Number(restored.checkpointX) || 128),
+      poweredUp: Boolean(restored.poweredUp),
     };
   }
 
@@ -1337,15 +1352,22 @@
     if (player.invulnerable > 0 || state.mode !== "playing") {
       return;
     }
-    state.lives -= 1;
-    burst(player.x + player.w / 2, player.y + player.h / 2, "#ff4d59", 22);
-    if (state.lives <= 0) {
-      state.mode = "lost";
-      state.message = "No lives left";
-      clearAutosave();
-      return;
+    const absorbedByLatte = player.poweredUp && !resetPosition;
+    if (absorbedByLatte) {
+      player.poweredUp = false;
+      toast("Latte power lost");
+      burst(player.x + player.w / 2, player.y + player.h / 2, "#ffd84a", 26);
+    } else {
+      state.lives -= 1;
+      burst(player.x + player.w / 2, player.y + player.h / 2, "#ff4d59", 22);
+      if (state.lives <= 0) {
+        state.mode = "lost";
+        state.message = "No lives left";
+        clearAutosave();
+        return;
+      }
+      toast("Watch out");
     }
-    toast("Watch out");
     if (resetPosition) {
       player.x = Math.max(PLAYER_START_X, player.checkpointX);
       player.y = SURFACE_Y - player.h;
@@ -1823,6 +1845,17 @@
       if (item.type === "ball") {
         drawSoccerBall(0, 0, item.w / 2, item.kicked ? item.spin : state.elapsed * 4);
       } else {
+        if (item.powerUp) {
+          const pulse = 0.5 + Math.sin(state.elapsed * 7) * 0.5;
+          const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 34 + pulse * 8);
+          glow.addColorStop(0, "rgba(255, 255, 190, 0.96)");
+          glow.addColorStop(0.45, "rgba(255, 216, 74, 0.58)");
+          glow.addColorStop(1, "rgba(255, 216, 74, 0)");
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(0, 0, 42, 0, Math.PI * 2);
+          ctx.fill();
+        }
         drawLatteCup(0, 0, item.w, item.h);
       }
       ctx.restore();
@@ -1996,6 +2029,9 @@
       }
       frame = currentFrames()[frameIndex];
       crop = currentCrops()[frameIndex];
+    }
+    if (player.poweredUp) {
+      visualH *= 2;
     }
     ctx.save();
     if (player.facing < 0) {
@@ -3165,6 +3201,7 @@
         type: item.type,
         x: Math.round(item.x),
         y: Math.round(item.y),
+        powerUp: item.type === "latte" ? Boolean(item.powerUp) : undefined,
         kicked: item.type === "ball" ? Boolean(item.kicked) : undefined,
         vx: item.type === "ball" ? Math.round(item.vx || 0) : undefined,
       }));
@@ -3193,6 +3230,7 @@
         x: block.x,
         y: block.y,
         hit: block.hit,
+        powerLatte: Boolean(block.powerLatte),
       }));
 
     return JSON.stringify({
@@ -3210,6 +3248,8 @@
         facing: state.player.facing > 0 ? "right" : "left",
         character: currentCharacter().id,
         characterName: currentCharacter().name,
+        poweredUp: Boolean(state.player.poweredUp),
+        visualScale: state.player.poweredUp ? 2 : 1,
       },
       mission: {
         balls: `${state.balls}/${state.totalBalls}`,
