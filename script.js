@@ -22,7 +22,7 @@
   const PLAYER_W = 72;
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
-  const BUILD_ID = "question-block-soccer-2026-07-13-2";
+  const BUILD_ID = "double-monsters-2026-07-13-3";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -491,9 +491,13 @@
       latte(3660 + offset, SURFACE_Y - 112);
 
       monster(1500 + offset, 1390 + offset, 1660 + offset);
+      monster(1590 + offset, 1390 + offset, 1660 + offset);
       monster(2020 + offset, 1900 + offset, 2260 + offset);
+      monster(2150 + offset, 1900 + offset, 2260 + offset);
       monster(2750 + offset, 2650 + offset, 3010 + offset);
+      monster(2890 + offset, 2650 + offset, 3010 + offset);
       monster(3440 + offset, 3290 + offset, 3660 + offset);
+      monster(3570 + offset, 3290 + offset, 3660 + offset);
     }
 
     const SECTION_SPAN = 4300;
@@ -1158,7 +1162,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 2,
+      version: 3,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1184,7 +1188,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 2 ? snapshot : null;
+      return snapshot && snapshot.version === 3 ? snapshot : null;
     } catch {
       return null;
     }
