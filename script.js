@@ -25,7 +25,9 @@
   const PLAYER_W = 72;
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
-  const BUILD_ID = "latte-growth-2026-07-13-5";
+  const PLAYER_POWER_SCALE = 1.5;
+  const SHOW_PARTICLE_SPLASHES = false;
+  const BUILD_ID = "latte-growth-polish-2026-07-13-6";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -1008,7 +1010,7 @@
           state.score += 150;
           if (item.powerUp) {
             player.poweredUp = true;
-            toast("Latte power: 2x size");
+            toast("Latte power: 1.5x size");
             burst(item.x + item.w / 2, item.y + item.h / 2, "#ffd84a", 28);
           } else {
             toast("Matcha latte collected");
@@ -1396,6 +1398,9 @@
   }
 
   function burst(x, y, color, count) {
+    if (!SHOW_PARTICLE_SPLASHES) {
+      return;
+    }
     for (let i = 0; i < count; i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 80 + Math.random() * 260;
@@ -2031,7 +2036,7 @@
       crop = currentCrops()[frameIndex];
     }
     if (player.poweredUp) {
-      visualH *= 2;
+      visualH *= PLAYER_POWER_SCALE;
     }
     ctx.save();
     if (player.facing < 0) {
@@ -3249,7 +3254,7 @@
         character: currentCharacter().id,
         characterName: currentCharacter().name,
         poweredUp: Boolean(state.player.poweredUp),
-        visualScale: state.player.poweredUp ? 2 : 1,
+        visualScale: state.player.poweredUp ? PLAYER_POWER_SCALE : 1,
       },
       mission: {
         balls: `${state.balls}/${state.totalBalls}`,
@@ -3263,6 +3268,10 @@
       visibleEnemies,
       visibleEnemyProjectiles,
       visibleBlocks,
+      effects: {
+        activeParticles: state.particles.length,
+        particleSplashesEnabled: SHOW_PARTICLE_SPLASHES,
+      },
       portal: {
         x: state.pipe.x,
         y: state.pipe.y,
