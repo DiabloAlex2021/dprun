@@ -27,7 +27,7 @@
   const PLAYER_VISUAL_HEIGHT = 138;
   const PLAYER_POWER_SCALE = 1.5;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "latte-growth-polish-2026-07-13-6";
+  const BUILD_ID = "powered-collision-frame-2026-07-13-7";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -1009,7 +1009,7 @@
           state.lattes += 1;
           state.score += 150;
           if (item.powerUp) {
-            player.poweredUp = true;
+            setPlayerPoweredUp(true);
             toast("Latte power: 1.5x size");
             burst(item.x + item.w / 2, item.y + item.h / 2, "#ffd84a", 28);
           } else {
@@ -1245,7 +1245,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 5,
+      version: 6,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1272,7 +1272,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 5 ? snapshot : null;
+      return snapshot && snapshot.version === 6 ? snapshot : null;
     } catch {
       return null;
     }
@@ -1303,8 +1303,10 @@
 
   function normalizePlayer(player) {
     const restored = player && typeof player === "object" ? player : {};
-    const w = Math.max(1, Number(restored.w) || 72);
-    const h = Math.max(1, Number(restored.h) || 112);
+    const poweredUp = Boolean(restored.poweredUp);
+    const frameScale = poweredUp ? PLAYER_POWER_SCALE : 1;
+    const w = PLAYER_W * frameScale;
+    const h = PLAYER_H * frameScale;
     const x = clamp(Number(restored.x) || 128, 8, WORLD_W - w - 8);
     const y = clamp(Number(restored.y) || SURFACE_Y - h, -VIEW_H, SURFACE_Y - h);
     return {
@@ -1325,8 +1327,25 @@
       jumpStartedAt: -1,
       jumpStartY: -1,
       checkpointX: Math.max(128, Number(restored.checkpointX) || 128),
-      poweredUp: Boolean(restored.poweredUp),
+      poweredUp,
     };
+  }
+
+  function setPlayerPoweredUp(poweredUp) {
+    const player = state.player;
+    const frameScale = poweredUp ? PLAYER_POWER_SCALE : 1;
+    const targetW = PLAYER_W * frameScale;
+    const targetH = PLAYER_H * frameScale;
+    const centerX = player.x + player.w * 0.5;
+    const bottomY = player.y + player.h;
+
+    player.poweredUp = poweredUp;
+    player.w = targetW;
+    player.h = targetH;
+    player.x = clamp(centerX - targetW * 0.5, 8, WORLD_W - targetW - 8);
+    player.y = Math.min(bottomY - targetH, SURFACE_Y - targetH);
+    player.prevX = player.x;
+    player.prevY = player.y;
   }
 
   function placePlayerAfterPortal() {
@@ -1356,7 +1375,7 @@
     }
     const absorbedByLatte = player.poweredUp && !resetPosition;
     if (absorbedByLatte) {
-      player.poweredUp = false;
+      setPlayerPoweredUp(false);
       toast("Latte power lost");
       burst(player.x + player.w / 2, player.y + player.h / 2, "#ffd84a", 26);
     } else {
@@ -3247,6 +3266,10 @@
       player: {
         x: Math.round(state.player.x),
         y: Math.round(state.player.y),
+        w: state.player.w,
+        h: state.player.h,
+        centerX: Math.round(state.player.x + state.player.w * 0.5),
+        bottomY: Math.round(state.player.y + state.player.h),
         vx: Math.round(state.player.vx),
         vy: Math.round(state.player.vy),
         onGround: state.player.onGround,
