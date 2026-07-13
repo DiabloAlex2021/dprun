@@ -22,7 +22,7 @@
   const PLAYER_W = 72;
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
-  const BUILD_ID = "hide-response-label-2026-07-13-1";
+  const BUILD_ID = "question-block-soccer-2026-07-13-2";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -449,10 +449,6 @@
       collectibles.push({ x, y, w: 42, h: 42, type: "latte", source, taken: false, bob: Math.random() * 10 });
     }
 
-    function ball(x, y, source = "field") {
-      collectibles.push({ x, y, w: 44, h: 44, type: "ball", source, taken: false, vx: 0, vy: 0, kicked: false, spin: 0, bob: Math.random() * 10 });
-    }
-
     const FOOD_MONSTER_KINDS = ["burger", "hotdog", "fries"];
     let monsterIndex = 0;
 
@@ -488,15 +484,10 @@
       block(3392 + offset, STEP_BLOCK_Y, "brick");
       block(3512 + offset, HIGH_REWARD_BLOCK_Y, "question", "latte");
 
-      ball(430 + offset, SURFACE_Y - 44);
       latte(712 + offset, JUMP_HIT_PICKUP_Y);
-      ball(1120 + offset, SURFACE_Y - 44);
       latte(1616 + offset, HIGH_REWARD_PICKUP_Y);
-      ball(1965 + offset, SURFACE_Y - 44);
       latte(2340 + offset, SURFACE_Y - 118);
-      ball(2780 + offset, SURFACE_Y - 44);
       latte(3010 + offset, HIGH_REWARD_PICKUP_Y);
-      ball(3330 + offset, SURFACE_Y - 44);
       latte(3660 + offset, SURFACE_Y - 112);
 
       monster(1500 + offset, 1390 + offset, 1660 + offset);
@@ -1167,7 +1158,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 1,
+      version: 2,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1193,7 +1184,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 1 ? snapshot : null;
+      return snapshot && snapshot.version === 2 ? snapshot : null;
     } catch {
       return null;
     }
