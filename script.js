@@ -17,12 +17,15 @@
   const FRICTION = 2600;
   const JUMP_SPEED = 1020;
   const SOCCER_KICK_SPEED = 760;
+  const HOTDOG_SHOT_SPEED = 420;
+  const HOTDOG_SHOT_RANGE = 700;
+  const HOTDOG_SHOT_INTERVAL = 2.6;
   const FRAME_DT = 1 / 60;
   const PLAYER_START_X = 128;
   const PLAYER_W = 72;
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
-  const BUILD_ID = "double-monsters-2026-07-13-3";
+  const BUILD_ID = "hotdog-sausage-2026-07-13-4";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -60,6 +63,7 @@
     blocks: [],
     collectibles: [],
     enemies: [],
+    enemyProjectiles: [],
     particles: [],
     pipe: null,
   };
@@ -426,6 +430,7 @@
     state.blocks = level.blocks;
     state.collectibles = level.collectibles;
     state.enemies = level.enemies;
+    state.enemyProjectiles = [];
     state.pipe = level.pipe;
     state.particles = [];
     state.cameraX = clampCameraX(cameraTargetX());
@@ -453,9 +458,22 @@
     let monsterIndex = 0;
 
     function monster(x, left, right) {
-      const kind = FOOD_MONSTER_KINDS[monsterIndex % FOOD_MONSTER_KINDS.length];
+      const sequenceIndex = monsterIndex;
+      const kind = FOOD_MONSTER_KINDS[sequenceIndex % FOOD_MONSTER_KINDS.length];
       monsterIndex += 1;
-      enemies.push({ x, y: SURFACE_Y - 56, w: 56, h: 56, left, right, vx: 86, alive: true, stomped: 0, kind });
+      enemies.push({
+        x,
+        y: SURFACE_Y - 56,
+        w: 56,
+        h: 56,
+        left,
+        right,
+        vx: 86,
+        alive: true,
+        stomped: 0,
+        kind,
+        shootCooldown: kind === "hotdog" ? 0.9 + (sequenceIndex % 3) * 0.35 : 0,
+      });
     }
 
     function buildSection(offset) {
@@ -634,6 +652,7 @@
 
     updatePlayer(dt);
     updateEnemies(dt);
+    updateEnemyProjectiles(dt);
     updateSoccerBalls(dt);
     collectItems();
     checkSoccerEnemyContact();
@@ -864,6 +883,7 @@
   }
 
   function updateEnemies(dt) {
+    const playerCenter = state.player.x + state.player.w / 2;
     for (const enemy of state.enemies) {
       if (!enemy.alive) {
         enemy.stomped += dt;
@@ -874,7 +894,54 @@
         enemy.vx *= -1;
         enemy.x = clamp(enemy.x, enemy.left, enemy.right - enemy.w);
       }
+
+      if (enemy.kind !== "hotdog") {
+        continue;
+      }
+      const enemyCenter = enemy.x + enemy.w / 2;
+      if (Math.abs(playerCenter - enemyCenter) > HOTDOG_SHOT_RANGE) {
+        continue;
+      }
+      enemy.shootCooldown = Math.max(0, (enemy.shootCooldown || 0) - dt);
+      if (enemy.shootCooldown <= 0) {
+        fireSausage(enemy, playerCenter < enemyCenter ? -1 : 1);
+        enemy.shootCooldown = HOTDOG_SHOT_INTERVAL;
+      }
     }
+  }
+
+  function fireSausage(enemy, direction) {
+    const w = 38;
+    const h = 16;
+    state.enemyProjectiles.push({
+      x: enemy.x + enemy.w / 2 + direction * 24 - w / 2,
+      y: enemy.y + 20,
+      w,
+      h,
+      vx: direction * HOTDOG_SHOT_SPEED,
+      life: 2.5,
+      active: true,
+    });
+  }
+
+  function updateEnemyProjectiles(dt) {
+    for (const projectile of state.enemyProjectiles) {
+      if (!projectile.active) {
+        continue;
+      }
+      projectile.x += projectile.vx * dt;
+      projectile.life -= dt;
+      if (projectile.life <= 0 || projectile.x + projectile.w < 0 || projectile.x > WORLD_W) {
+        projectile.active = false;
+        continue;
+      }
+      if (aabb(projectile, state.player)) {
+        projectile.active = false;
+        burst(projectile.x + projectile.w / 2, projectile.y + projectile.h / 2, "#ffb035", 12);
+        hurtPlayer();
+      }
+    }
+    state.enemyProjectiles = state.enemyProjectiles.filter((projectile) => projectile.active);
   }
 
   function updateSoccerBalls(dt) {
@@ -1162,7 +1229,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 3,
+      version: 4,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1178,6 +1245,7 @@
       blocks: clonePlain(state.blocks),
       collectibles: clonePlain(state.collectibles),
       enemies: clonePlain(state.enemies),
+      enemyProjectiles: clonePlain(state.enemyProjectiles),
       pipe: clonePlain(state.pipe),
     };
   }
@@ -1188,7 +1256,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 3 ? snapshot : null;
+      return snapshot && snapshot.version === 4 ? snapshot : null;
     } catch {
       return null;
     }
@@ -1212,6 +1280,7 @@
     state.blocks = Array.isArray(snapshot.blocks) ? snapshot.blocks : state.blocks;
     state.collectibles = Array.isArray(snapshot.collectibles) ? snapshot.collectibles : state.collectibles;
     state.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies : state.enemies;
+    state.enemyProjectiles = Array.isArray(snapshot.enemyProjectiles) ? snapshot.enemyProjectiles : [];
     state.pipe = snapshot.pipe || state.pipe;
     state.particles = [];
   }
@@ -1540,6 +1609,7 @@
     drawBlocks();
     drawCollectibles();
     drawEnemies();
+    drawEnemyProjectiles();
     drawPipe();
     drawPlayer();
     drawParticles();
@@ -1771,6 +1841,52 @@
       drawFoodMonster(enemy.kind, enemy.w, enemy.h);
       ctx.restore();
     }
+  }
+
+  function drawEnemyProjectiles() {
+    for (const projectile of state.enemyProjectiles) {
+      if (!projectile.active || !isVisible(projectile.x, projectile.w)) {
+        continue;
+      }
+      ctx.save();
+      ctx.translate(projectile.x + projectile.w / 2, projectile.y + projectile.h / 2);
+      if (projectile.vx < 0) {
+        ctx.scale(-1, 1);
+      }
+      ctx.rotate(Math.sin(state.elapsed * 18 + projectile.x * 0.02) * 0.08);
+      drawSausageProjectile(projectile.w, projectile.h);
+      ctx.restore();
+    }
+  }
+
+  function drawSausageProjectile(w, h) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+    ctx.beginPath();
+    ctx.ellipse(0, h * 0.72, w * 0.46, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    roundRect(-w / 2, -h / 2, w, h, h / 2);
+    ctx.fillStyle = "#d74620";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#6d1d12";
+    ctx.stroke();
+
+    ctx.strokeStyle = "#ffd84a";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.32, 0);
+    ctx.lineTo(-w * 0.16, -3);
+    ctx.lineTo(0, 3);
+    ctx.lineTo(w * 0.16, -3);
+    ctx.lineTo(w * 0.32, 0);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.42)";
+    ctx.beginPath();
+    ctx.ellipse(-w * 0.18, -h * 0.22, w * 0.13, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function drawPipe() {
@@ -3055,9 +3171,19 @@
     const visibleEnemies = state.enemies
       .filter((enemy) => enemy.alive && enemy.x + enemy.w >= camera && enemy.x <= camera + VIEW_W)
       .map((enemy) => ({
+        kind: enemy.kind,
         x: Math.round(enemy.x),
         y: Math.round(enemy.y),
         dir: enemy.vx < 0 ? "left" : "right",
+      }));
+    const visibleEnemyProjectiles = state.enemyProjectiles
+      .filter((projectile) => projectile.active && projectile.x + projectile.w >= camera && projectile.x <= camera + VIEW_W)
+      .slice(0, 12)
+      .map((projectile) => ({
+        type: "sausage",
+        x: Math.round(projectile.x),
+        y: Math.round(projectile.y),
+        dir: projectile.vx < 0 ? "left" : "right",
       }));
     const visibleBlocks = state.blocks
       .filter((block) => block.x + block.w >= camera && block.x <= camera + VIEW_W)
@@ -3095,6 +3221,7 @@
       time: Math.ceil(state.timer),
       visibleCollectibles,
       visibleEnemies,
+      visibleEnemyProjectiles,
       visibleBlocks,
       portal: {
         x: state.pipe.x,
