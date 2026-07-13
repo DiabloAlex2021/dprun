@@ -27,7 +27,7 @@
   const PLAYER_VISUAL_HEIGHT = 138;
   const PLAYER_POWER_SCALE = 1.5;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "powered-collision-frame-2026-07-13-7";
+  const BUILD_ID = "powered-brick-break-2026-07-13-8";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -807,7 +807,10 @@
       } else if (player.vy < 0 && player.prevY >= item.y + item.h - 18) {
         player.y = item.y + item.h;
         player.vy = 80;
-        hitBlock(item);
+        if (hitBlock(item)) {
+          state.blocks = state.blocks.filter((block) => block !== item);
+          break;
+        }
       }
     }
   }
@@ -865,9 +868,14 @@
       if (item.content) {
         spawnFromBlock(item);
       }
+    } else if (item.type === "brick" && state.player.poweredUp) {
+      state.score += 100;
+      toast("Brick smashed");
+      return true;
     } else if (item.type === "brick") {
       burst(item.x + item.w / 2, item.y + item.h / 2, "#bd651f", 10);
     }
+    return false;
   }
 
   function spawnFromBlock(item) {
