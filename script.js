@@ -22,11 +22,12 @@
   const PLAYER_W = 72;
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
-  const BUILD_ID = "unified-art-2026-07-10-4";
+  const BUILD_ID = "hide-response-label-2026-07-13-1";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
   const SHOW_CHARACTER_SELECTOR = true;
+  const SHOW_RESPONSE_LABEL = false;
   const TEMP_HIDDEN_CHARACTER_IDS = new Set(["pilot"]);
   const PENALTY_PAGE = "penaltykick.html?from=runner";
   const PENALTY_RESULT_KEY = "dpaiPenaltyResult";
@@ -1988,7 +1989,7 @@
     strokeFillText("SCORE", VIEW_W - 90, 32);
     strokeFillText(String(state.score).padStart(6, "0"), VIEW_W - 90, 68);
 
-    if (state.mode === "playing" && state.messageTimer > 0) {
+    if (SHOW_RESPONSE_LABEL && state.mode === "playing" && state.messageTimer > 0) {
       ctx.font = "800 24px Arial, sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "rgba(15, 31, 42, 0.74)";
@@ -2031,7 +2032,7 @@
     strokeFillText(`T ${String(Math.ceil(state.timer)).padStart(3, "0")}`, x + 74, y + 66);
     strokeFillText(`S ${String(state.score).padStart(6, "0")}`, x + 178, y + 66);
 
-    if (state.mode === "playing" && state.messageTimer > 0) {
+    if (SHOW_RESPONSE_LABEL && state.mode === "playing" && state.messageTimer > 0) {
       ctx.font = "800 20px Arial, sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "rgba(15, 31, 42, 0.76)";
