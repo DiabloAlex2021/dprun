@@ -27,7 +27,7 @@
   const PLAYER_VISUAL_HEIGHT = 138;
   const PLAYER_POWER_SCALE = 1.5;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "powered-low-brick-clearance-2026-07-13-9";
+  const BUILD_ID = "powered-brick-launch-2026-07-13-10";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -66,6 +66,7 @@
     collectibles: [],
     enemies: [],
     enemyProjectiles: [],
+    launchedBricks: [],
     particles: [],
     pipe: null,
   };
@@ -434,6 +435,7 @@
     state.collectibles = level.collectibles;
     state.enemies = level.enemies;
     state.enemyProjectiles = [];
+    state.launchedBricks = [];
     state.pipe = level.pipe;
     state.particles = [];
     state.cameraX = clampCameraX(cameraTargetX());
@@ -870,12 +872,30 @@
       }
     } else if (item.type === "brick" && state.player.poweredUp) {
       state.score += 100;
+      launchBrick(item);
       toast("Brick smashed");
       return true;
     } else if (item.type === "brick") {
       burst(item.x + item.w / 2, item.y + item.h / 2, "#bd651f", 10);
     }
     return false;
+  }
+
+  function launchBrick(item) {
+    const playerCenter = state.player.x + state.player.w * 0.5;
+    const brickCenter = item.x + item.w * 0.5;
+    state.launchedBricks.push({
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      vx: brickCenter < playerCenter ? -36 : 36,
+      vy: -480,
+      rotation: 0,
+      spin: brickCenter < playerCenter ? -0.9 : 0.9,
+      age: 0,
+      duration: 0.9,
+    });
   }
 
   function spawnFromBlock(item) {
@@ -1306,6 +1326,7 @@
     state.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies : state.enemies;
     state.enemyProjectiles = Array.isArray(snapshot.enemyProjectiles) ? snapshot.enemyProjectiles : [];
     state.pipe = snapshot.pipe || state.pipe;
+    state.launchedBricks = [];
     state.particles = [];
   }
 
@@ -1412,6 +1433,15 @@
   }
 
   function updateParticles(dt) {
+    for (const brick of state.launchedBricks) {
+      brick.age += dt;
+      brick.x += brick.vx * dt;
+      brick.y += brick.vy * dt;
+      brick.vy -= 120 * dt;
+      brick.rotation += brick.spin * dt;
+    }
+    state.launchedBricks = state.launchedBricks.filter((brick) => brick.age < brick.duration);
+
     for (const particle of state.particles) {
       particle.life -= dt;
       particle.x += particle.vx * dt;
@@ -1661,6 +1691,7 @@
     }
     drawGround();
     drawBlocks();
+    drawLaunchedBricks();
     drawCollectibles();
     drawEnemies();
     drawEnemyProjectiles();
@@ -1765,6 +1796,24 @@
       } else {
         drawLatteBlock(block.x, y, block.w, block.h);
       }
+    }
+  }
+
+  function drawLaunchedBricks() {
+    for (const brick of state.launchedBricks) {
+      if (!isVisible(brick.x, brick.w)) {
+        continue;
+      }
+      const progress = brick.age / brick.duration;
+      const fade = progress > 0.62 ? (1 - progress) / 0.38 : 1;
+      const scale = 1 + progress * 0.08;
+      ctx.save();
+      ctx.globalAlpha = clamp(fade, 0, 1);
+      ctx.translate(brick.x + brick.w * 0.5, brick.y + brick.h * 0.5);
+      ctx.rotate(brick.rotation);
+      ctx.scale(scale, scale);
+      drawBrick(-brick.w * 0.5, -brick.h * 0.5, brick.w, brick.h);
+      ctx.restore();
     }
   }
 
@@ -3302,6 +3351,11 @@
       effects: {
         activeParticles: state.particles.length,
         particleSplashesEnabled: SHOW_PARTICLE_SPLASHES,
+        launchedBricks: state.launchedBricks.map((brick) => ({
+          x: Math.round(brick.x),
+          y: Math.round(brick.y),
+          progress: Number((brick.age / brick.duration).toFixed(2)),
+        })),
       },
       portal: {
         x: state.pipe.x,
