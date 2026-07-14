@@ -26,8 +26,9 @@
   const PLAYER_H = 112;
   const PLAYER_VISUAL_HEIGHT = 138;
   const PLAYER_POWER_SCALE = 1.5;
+  const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "powered-brick-launch-2026-07-13-10";
+  const BUILD_ID = "single-knee-crouch-2026-07-13-11";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -430,6 +431,7 @@
       jumpStartY: -1,
       checkpointX: PLAYER_START_X,
       poweredUp: false,
+      crouching: false,
     };
     state.blocks = level.blocks;
     state.collectibles = level.collectibles;
@@ -713,6 +715,7 @@
     const wasOnGround = player.onGround;
     player.prevX = player.x;
     player.prevY = player.y;
+    updatePlayerCrouch(player);
     player.invulnerable = Math.max(0, player.invulnerable - dt);
     player.kickTimer = Math.max(0, player.kickTimer - dt);
     player.landTimer = Math.max(0, player.landTimer - dt);
@@ -768,6 +771,15 @@
       player.anim += dt * (9 + Math.abs(player.vx) / 85);
     } else {
       player.anim += dt * 2.5;
+    }
+  }
+
+  function updatePlayerCrouch(player) {
+    const wantsToCrouch = input.down && player.onGround;
+    if (wantsToCrouch && !player.crouching) {
+      setPlayerCrouching(true);
+    } else if (!wantsToCrouch && player.crouching && canSetPlayerCrouching(false)) {
+      setPlayerCrouching(false);
     }
   }
 
@@ -1273,7 +1285,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 7,
+      version: 8,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1300,7 +1312,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 7 ? snapshot : null;
+      return snapshot && snapshot.version === 8 ? snapshot : null;
     } catch {
       return null;
     }
@@ -1333,9 +1345,8 @@
   function normalizePlayer(player) {
     const restored = player && typeof player === "object" ? player : {};
     const poweredUp = Boolean(restored.poweredUp);
-    const frameScale = poweredUp ? PLAYER_POWER_SCALE : 1;
-    const w = PLAYER_W * frameScale;
-    const h = PLAYER_H * frameScale;
+    const crouching = Boolean(restored.crouching);
+    const { w, h } = playerBodySize(poweredUp, crouching);
     const x = clamp(Number(restored.x) || 128, 8, WORLD_W - w - 8);
     const y = clamp(Number(restored.y) || SURFACE_Y - h, -VIEW_H, SURFACE_Y - h);
     return {
@@ -1357,14 +1368,21 @@
       jumpStartY: -1,
       checkpointX: Math.max(128, Number(restored.checkpointX) || 128),
       poweredUp,
+      crouching,
+    };
+  }
+
+  function playerBodySize(poweredUp, crouching) {
+    const frameScale = poweredUp ? PLAYER_POWER_SCALE : 1;
+    return {
+      w: PLAYER_W * frameScale,
+      h: PLAYER_H * frameScale * (crouching ? PLAYER_CROUCH_HEIGHT_SCALE : 1),
     };
   }
 
   function setPlayerPoweredUp(poweredUp) {
     const player = state.player;
-    const frameScale = poweredUp ? PLAYER_POWER_SCALE : 1;
-    const targetW = PLAYER_W * frameScale;
-    const targetH = PLAYER_H * frameScale;
+    const { w: targetW, h: targetH } = playerBodySize(poweredUp, player.crouching);
     const centerX = player.x + player.w * 0.5;
     const bottomY = player.y + player.h;
 
@@ -1375,6 +1393,36 @@
     player.y = Math.min(bottomY - targetH, SURFACE_Y - targetH);
     player.prevX = player.x;
     player.prevY = player.y;
+  }
+
+  function setPlayerCrouching(crouching) {
+    const player = state.player;
+    const { w: targetW, h: targetH } = playerBodySize(player.poweredUp, crouching);
+    const centerX = player.x + player.w * 0.5;
+    const bottomY = player.y + player.h;
+
+    player.crouching = crouching;
+    player.w = targetW;
+    player.h = targetH;
+    player.x = clamp(centerX - targetW * 0.5, 8, WORLD_W - targetW - 8);
+    player.y = bottomY - targetH;
+    player.prevX = player.x;
+    player.prevY = player.y;
+  }
+
+  function canSetPlayerCrouching(crouching) {
+    const player = state.player;
+    const { w, h } = playerBodySize(player.poweredUp, crouching);
+    const candidate = {
+      x: player.x + (player.w - w) * 0.5,
+      y: player.y + player.h - h,
+      w,
+      h,
+    };
+    if (candidate.y < -VIEW_H || state.blocks.some((block) => aabb(candidate, block))) {
+      return false;
+    }
+    return !state.pipe || !aabb(candidate, pipeSolidBounds());
   }
 
   function placePlayerAfterPortal() {
@@ -2061,7 +2109,7 @@
     ctx.restore();
   }
 
-  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, crouch: 0.74, kneel: 0.82 };
+  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: PLAYER_CROUCH_HEIGHT_SCALE };
 
   function readyPose(name) {
     const img = currentCharacter().poses[name];
@@ -2092,8 +2140,8 @@
     let posed = false;
     if (player.kickTimer > 0) {
       posed = pickPose("kick");
-    } else if (player.onGround && input.down && state.mode === "playing") {
-      posed = pickPose("crouch");
+    } else if (player.crouching && state.mode === "playing") {
+      posed = pickPose("kneel");
     } else if (player.onGround && player.landTimer > 0 && Math.abs(player.vx) < 60) {
       posed = pickPose("kneel");
     } else if (!player.onGround && player.vy < 0) {
@@ -3323,8 +3371,8 @@
       player: {
         x: Math.round(state.player.x),
         y: Math.round(state.player.y),
-        w: state.player.w,
-        h: state.player.h,
+        w: Number(state.player.w.toFixed(2)),
+        h: Number(state.player.h.toFixed(2)),
         centerX: Math.round(state.player.x + state.player.w * 0.5),
         bottomY: Math.round(state.player.y + state.player.h),
         vx: Math.round(state.player.vx),
@@ -3334,6 +3382,7 @@
         character: currentCharacter().id,
         characterName: currentCharacter().name,
         poweredUp: Boolean(state.player.poweredUp),
+        crouching: Boolean(state.player.crouching),
         visualScale: state.player.poweredUp ? PLAYER_POWER_SCALE : 1,
       },
       mission: {
