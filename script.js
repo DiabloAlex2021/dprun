@@ -27,7 +27,7 @@
   const PLAYER_VISUAL_HEIGHT = 138;
   const PLAYER_POWER_SCALE = 1.5;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "powered-brick-break-2026-07-13-8";
+  const BUILD_ID = "powered-low-brick-clearance-2026-07-13-9";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -444,7 +444,7 @@
     const collectibles = [];
     const enemies = [];
     const JUMP_HIT_BLOCK_Y = 340;
-    const STEP_BLOCK_Y = 430;
+    const STEP_BLOCK_Y = 402;
     const HIGH_REWARD_BLOCK_Y = 240;
     const HIGH_REWARD_PICKUP_Y = 196;
     const JUMP_HIT_PICKUP_Y = 296;
@@ -1253,7 +1253,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 6,
+      version: 7,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1280,7 +1280,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 6 ? snapshot : null;
+      return snapshot && snapshot.version === 7 ? snapshot : null;
     } catch {
       return null;
     }
