@@ -29,8 +29,9 @@
   const PLAYER_VISUAL_HEIGHT = 138;
   const PLAYER_POWER_SCALE = 1.5;
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
+  const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "mobile-joystick-2026-07-14-16";
+  const BUILD_ID = "powered-passage-spacing-2026-07-14-17";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -504,9 +505,10 @@
       block(1088 + offset, HIGH_REWARD_BLOCK_Y, "brick");
       powerLatteCandidates.push(block(1210 + offset, JUMP_HIT_BLOCK_Y, "question", "latte"));
       block(1392 + offset, STEP_BLOCK_Y, "brick");
-      block(1528 + offset, HIGH_REWARD_BLOCK_Y, "latteBlock");
-      block(1592 + offset, HIGH_REWARD_BLOCK_Y, "latteBlock");
-      block(1764 + offset, HIGH_REWARD_BLOCK_Y, "question", "ball");
+      const pairedLatteBlockX = 1528 + offset;
+      block(pairedLatteBlockX, HIGH_REWARD_BLOCK_Y, "latteBlock");
+      block(pairedLatteBlockX + TILE, HIGH_REWARD_BLOCK_Y, "latteBlock");
+      block(pairedLatteBlockX + TILE * 2 + POWERED_PASSAGE_GAP, HIGH_REWARD_BLOCK_Y, "question", "ball");
       block(1936 + offset, STEP_BLOCK_Y, "brick");
       powerLatteCandidates.push(block(2092 + offset, 386, "question", "latte"));
       block(2156 + offset, 386, "brick");
@@ -1331,7 +1333,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 8,
+      version: 9,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1358,7 +1360,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 8 ? snapshot : null;
+      return snapshot && snapshot.version === 9 ? snapshot : null;
     } catch {
       return null;
     }
