@@ -28,7 +28,7 @@
   const PLAYER_POWER_SCALE = 1.5;
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "single-knee-scale-grounding-2026-07-13-12";
+  const BUILD_ID = "all-frame-grounding-2026-07-14-13";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -248,23 +248,25 @@
   function loadCharacterSet(character) {
     character.frames = buildFrameSources(character).map((src) => {
       const img = new Image();
-      trackImage(img, src);
       img.addEventListener("load", () => {
         character.loadedFrames += 1;
+        img.alphaCrop = computeAlphaCrop(img);
       });
       img.addEventListener("error", () => {
         character.loadedFrames += 1;
       });
+      trackImage(img, src);
       return img;
     });
     character.poses = {};
     const optionalPoseFiles = OPTIONAL_POSE_FILES_BY_CHARACTER[character.id] || {};
     for (const [pose, file] of Object.entries(optionalPoseFiles)) {
       const img = new Image();
-      trackImage(img, `${character.folder}/${file}`);
       img.addEventListener("load", () => {
-        img.trimCrop = computeAlphaCrop(img);
+        img.alphaCrop = computeAlphaCrop(img);
+        img.trimCrop = img.alphaCrop;
       });
+      trackImage(img, `${character.folder}/${file}`);
       character.poses[pose] = img;
     }
   }
@@ -2183,7 +2185,10 @@
       const drawH = visualH;
       const drawW = drawH * (source.w / source.h);
       const drawX = x + w / 2 - drawW / 2;
-      const drawY = y + h - drawH + baselineOffset;
+      const alphaBottom = frame.alphaCrop ? frame.alphaCrop.y + frame.alphaCrop.h : source.y + source.h;
+      const bottomPadding = Math.max(0, source.y + source.h - alphaBottom);
+      const alphaBaselineOffset = (bottomPadding / source.h) * drawH;
+      const drawY = y + h - drawH + baselineOffset + alphaBaselineOffset;
       drawFrameImage(frame, source, drawX, drawY, drawW, drawH);
       return;
     }
