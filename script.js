@@ -28,7 +28,7 @@
   const PLAYER_POWER_SCALE = 1.5;
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "all-frame-grounding-2026-07-14-13";
+  const BUILD_ID = "crouch-visual-balance-2026-07-14-14";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -2111,7 +2111,7 @@
     ctx.restore();
   }
 
-  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: 1 };
+  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: 0.92 };
   const POSE_BASELINE_OFFSET = { kneel: 6 };
 
   function readyPose(name) {
