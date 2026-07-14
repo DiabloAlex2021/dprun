@@ -28,7 +28,7 @@
   const PLAYER_POWER_SCALE = 1.5;
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "single-knee-crouch-2026-07-13-11";
+  const BUILD_ID = "single-knee-scale-grounding-2026-07-13-12";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -2109,7 +2109,8 @@
     ctx.restore();
   }
 
-  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: PLAYER_CROUCH_HEIGHT_SCALE };
+  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: 1 };
+  const POSE_BASELINE_OFFSET = { kneel: 6 };
 
   function readyPose(name) {
     const img = currentCharacter().poses[name];
@@ -2125,6 +2126,7 @@
     let frame = null;
     let crop = null;
     let visualH = PLAYER_VISUAL_HEIGHT;
+    let baselineOffset = 0;
 
     const pickPose = (name) => {
       const img = readyPose(name);
@@ -2134,6 +2136,7 @@
       frame = img;
       crop = img.trimCrop || null;
       visualH = PLAYER_VISUAL_HEIGHT * (POSE_VISUAL_SCALE[name] || 1);
+      baselineOffset = POSE_BASELINE_OFFSET[name] || 0;
       return true;
     };
 
@@ -2161,25 +2164,26 @@
     }
     if (player.poweredUp) {
       visualH *= PLAYER_POWER_SCALE;
+      baselineOffset *= PLAYER_POWER_SCALE;
     }
     ctx.save();
     if (player.facing < 0) {
       ctx.translate(player.x + player.w, player.y);
       ctx.scale(-1, 1);
-      drawPlayerFrame(frame, crop, 0, 0, player.w, player.h, visualH);
+      drawPlayerFrame(frame, crop, 0, 0, player.w, player.h, visualH, baselineOffset);
     } else {
-      drawPlayerFrame(frame, crop, player.x, player.y, player.w, player.h, visualH);
+      drawPlayerFrame(frame, crop, player.x, player.y, player.w, player.h, visualH, baselineOffset);
     }
     ctx.restore();
   }
 
-  function drawPlayerFrame(frame, crop, x, y, w, h, visualH = PLAYER_VISUAL_HEIGHT) {
+  function drawPlayerFrame(frame, crop, x, y, w, h, visualH = PLAYER_VISUAL_HEIGHT, baselineOffset = 0) {
     if (frame && frame.complete && frame.naturalWidth > 0) {
       const source = getFrameSource(frame, crop);
       const drawH = visualH;
       const drawW = drawH * (source.w / source.h);
       const drawX = x + w / 2 - drawW / 2;
-      const drawY = y + h - drawH;
+      const drawY = y + h - drawH + baselineOffset;
       drawFrameImage(frame, source, drawX, drawY, drawW, drawH);
       return;
     }
@@ -2189,7 +2193,7 @@
       const drawH = visualH;
       const drawW = drawH * (fallback.naturalWidth / fallback.naturalHeight);
       const drawX = x + w / 2 - drawW / 2;
-      const drawY = y + h - drawH;
+      const drawY = y + h - drawH + baselineOffset;
       drawArt("playerCharacter", drawX, drawY, drawW, drawH);
       return;
     }
