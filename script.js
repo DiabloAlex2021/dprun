@@ -30,7 +30,7 @@
   const PLAYER_POWER_SCALE = 1.5;
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "monster-kick-roll-2026-07-14-15";
+  const BUILD_ID = "mobile-joystick-2026-07-14-16";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -698,14 +698,14 @@
   }
 
   function cameraMinX() {
-    if (!isPhonePortraitViewport()) {
+    if (!isPhoneViewport()) {
       return 0;
     }
     return PLAYER_START_X + PLAYER_W * 0.5 - VIEW_W * 0.5;
   }
 
   function cameraMaxX() {
-    if (!isPhonePortraitViewport()) {
+    if (!isPhoneViewport()) {
       return WORLD_W - VIEW_W;
     }
     const visible = phoneVisibleCanvasRect();
@@ -713,11 +713,11 @@
   }
 
   function cameraAnchorRatio() {
-    return isPhonePortraitViewport() ? 0.5 : 0.42;
+    return isPhoneViewport() ? 0.5 : 0.42;
   }
 
-  function isPhonePortraitViewport() {
-    return window.matchMedia("(orientation: portrait) and (max-width: 900px)").matches;
+  function isPhoneViewport() {
+    return window.matchMedia("(hover: none) and (pointer: coarse) and (max-width: 1024px)").matches;
   }
 
   function updatePlayer(dt) {
@@ -2307,7 +2307,7 @@
 
   function drawHud() {
     ctx.save();
-    if (isPhonePortraitViewport()) {
+    if (isPhoneViewport()) {
       drawPhoneHud();
       ctx.restore();
       return;
@@ -2350,8 +2350,9 @@
   }
 
   function drawPhoneHud() {
-    const x = VIEW_W / 2 - 170;
-    const y = 16;
+    const rect = phoneVisibleCanvasRect();
+    const x = rect.x + rect.w / 2 - 170;
+    const y = rect.y + 16;
     ctx.textBaseline = "top";
     ctx.fillStyle = "rgba(6, 23, 50, 0.58)";
     roundRect(x, y, 340, 92, 14);
@@ -2391,7 +2392,7 @@
   }
 
   function drawTitle() {
-    if (isPhonePortraitViewport()) {
+    if (isPhoneViewport()) {
       drawPhoneTitle();
       return;
     }
@@ -2454,14 +2455,15 @@
 
   function drawPhoneTitle() {
     const rect = phoneVisibleCanvasRect();
+    const landscape = window.matchMedia("(orientation: landscape)").matches;
     const cx = rect.x + rect.w / 2;
     const contentW = Math.min(430, rect.w - 24);
-    const scale = clamp(contentW / 430, 0.72, 1);
+    const scale = landscape ? 0.72 : clamp(contentW / 430, 0.72, 1);
     const controlsTop = phoneControlsTopY();
     const bottomLimit = Math.min(rect.y + rect.h - 18, controlsTop - 12);
-    const logoW = Math.min(contentW * 0.9, 306);
+    const logoW = landscape ? 210 : Math.min(contentW * 0.9, 306);
     const logoH = logoW * (158 / 444);
-    const logoY = 30;
+    const logoY = rect.y + (landscape ? 10 : 30);
 
     ctx.save();
     ctx.fillStyle = "rgba(10, 36, 76, 0.3)";
@@ -2479,20 +2481,23 @@
       ctx.fillText("dp.AI", cx, logoY + 4);
     }
 
-    ctx.font = `900 ${Math.round(31 * scale)}px Arial Black, Arial, sans-serif`;
+    ctx.font = `900 ${landscape ? 22 : Math.round(31 * scale)}px Arial Black, Arial, sans-serif`;
     ctx.lineWidth = Math.max(4, 6 * scale);
     ctx.strokeStyle = "#10223b";
     ctx.fillStyle = "#ffffff";
-    strokeFillText("LEVEL 1", cx, logoY + logoH + 12);
-    strokeFillText("LOS ANGELES", cx, logoY + logoH + 48 * scale);
+    strokeFillText("LEVEL 1", cx, logoY + logoH + (landscape ? 4 : 12));
+    strokeFillText("LOS ANGELES", cx, logoY + logoH + (landscape ? 32 : 48 * scale));
 
+    const selectorY = logoY + logoH + (landscape ? 80 : 105 * scale);
     if (SHOW_CHARACTER_SELECTOR) {
-      drawPhoneCharacterSelector(cx, logoY + logoH + 105 * scale, contentW, scale);
+      drawPhoneCharacterSelector(cx, selectorY, contentW, scale);
     }
 
-    const panelH = 74 * scale;
+    const panelH = landscape ? 58 : 74 * scale;
     const panelGap = SHOW_CHARACTER_SELECTOR ? 38 : 106;
-    const panelY = bottomLimit - panelH - panelGap * scale;
+    const panelY = landscape && SHOW_CHARACTER_SELECTOR
+      ? selectorY + 112
+      : bottomLimit - panelH - panelGap * scale;
     ctx.fillStyle = "rgba(17, 24, 38, 0.78)";
     roundRect(cx - contentW / 2, panelY, contentW, panelH, 12);
     ctx.fill();
@@ -2503,17 +2508,17 @@
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "rgba(0,0,0,0.4)";
     ctx.lineWidth = 3;
-    ctx.font = `900 ${Math.round(22 * scale)}px Arial Black, Arial, sans-serif`;
-    strokeFillText("Collect soccer balls", cx, panelY + 11 * scale);
-    ctx.font = `800 ${Math.round(19 * scale)}px Arial, sans-serif`;
-    strokeFillText("and matcha lattes", cx, panelY + 40 * scale);
+    ctx.font = `900 ${landscape ? 16 : Math.round(22 * scale)}px Arial Black, Arial, sans-serif`;
+    strokeFillText("Collect soccer balls", cx, panelY + (landscape ? 8 : 11 * scale));
+    ctx.font = `800 ${landscape ? 14 : Math.round(19 * scale)}px Arial, sans-serif`;
+    strokeFillText("and matcha lattes", cx, panelY + (landscape ? 31 : 40 * scale));
 
     ctx.fillStyle = "#ffd83d";
     ctx.strokeStyle = "#10223b";
     ctx.lineWidth = 4;
-    ctx.font = `900 ${Math.round(20 * scale)}px Arial Black, Arial, sans-serif`;
+    ctx.font = `900 ${landscape ? 16 : Math.round(20 * scale)}px Arial Black, Arial, sans-serif`;
     const active = currentCharacter();
-    strokeFillText(characterLoadPrompt(active, "Tap Start or Jump"), cx, bottomLimit - 27 * scale);
+    strokeFillText(characterLoadPrompt(active, "Tap Start or Jump"), cx, bottomLimit - (landscape ? 22 : 27 * scale));
     ctx.restore();
   }
 
@@ -2574,7 +2579,9 @@
     if (!controls || getComputedStyle(controls).display === "none") {
       return VIEW_H;
     }
-    return VIEW_H - controls.getBoundingClientRect().height / scale;
+    const controlSurfaces = controls.querySelectorAll(".virtual-joystick, .mobile-actions");
+    const top = Math.min(...Array.from(controlSurfaces, (element) => element.getBoundingClientRect().top));
+    return Number.isFinite(top) ? VIEW_H - (viewportH - top) / scale : VIEW_H;
   }
 
   function drawCharacterSelector() {
@@ -2646,7 +2653,7 @@
   }
 
   function drawPortalChoice() {
-    const phone = isPhonePortraitViewport();
+    const phone = isPhoneViewport();
     const rect = phone ? phoneVisibleCanvasRect() : { x: 0, y: 0, w: VIEW_W, h: VIEW_H };
     const controlsTop = phone ? phoneControlsTopY() : VIEW_H;
     const panelW = Math.min(phone ? rect.w - 30 : 620, 620);
@@ -2693,7 +2700,7 @@
   }
 
   function drawResetConfirmation() {
-    const phone = isPhonePortraitViewport();
+    const phone = isPhoneViewport();
     const rect = phone ? phoneVisibleCanvasRect() : { x: 0, y: 0, w: VIEW_W, h: VIEW_H };
     const controlsTop = phone ? phoneControlsTopY() : VIEW_H;
     const panelW = Math.min(phone ? rect.w - 30 : 560, 560);
@@ -3336,6 +3343,8 @@
       if (state.mode === "title" || state.mode === "won" || state.mode === "lost") {
         startGame();
       }
+    } else if (control === "kick" && state.mode === "playing") {
+      performKick();
     }
   }
 
@@ -3373,6 +3382,97 @@
     }
   }
 
+  function bindTouchJoystick() {
+    const joystick = document.querySelector("[data-joystick]");
+    const knob = joystick?.querySelector(".virtual-joystick__knob");
+    if (!joystick || !knob) {
+      return;
+    }
+
+    let pointerId = null;
+    const activeControls = new Set();
+
+    const setActiveControls = (nextControls) => {
+      for (const control of activeControls) {
+        if (!nextControls.has(control)) {
+          releaseTouchControl(control);
+          activeControls.delete(control);
+        }
+      }
+      for (const control of nextControls) {
+        if (!activeControls.has(control)) {
+          activeControls.add(control);
+          pressTouchControl(control);
+        }
+      }
+    };
+
+    const updateJoystick = (event) => {
+      const rect = joystick.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const maxTravel = rect.width * 0.29;
+      const rawX = event.clientX - centerX;
+      const rawY = event.clientY - centerY;
+      const distance = Math.hypot(rawX, rawY);
+      const scale = distance > maxTravel ? maxTravel / distance : 1;
+      const x = rawX * scale;
+      const y = rawY * scale;
+      const normalizedX = x / maxTravel;
+      const normalizedY = y / maxTravel;
+      knob.style.setProperty("--stick-x", `${x.toFixed(1)}px`);
+      knob.style.setProperty("--stick-y", `${y.toFixed(1)}px`);
+
+      const nextControls = new Set();
+      if (normalizedX < -0.28) nextControls.add("left");
+      if (normalizedX > 0.28) nextControls.add("right");
+      if (normalizedY > 0.48) nextControls.add("down");
+      setActiveControls(nextControls);
+    };
+
+    const releaseJoystick = (event) => {
+      if (pointerId === null || event.pointerId !== pointerId) {
+        return;
+      }
+      pointerId = null;
+      joystick.classList.remove("is-active");
+      knob.style.setProperty("--stick-x", "0px");
+      knob.style.setProperty("--stick-y", "0px");
+      setActiveControls(new Set());
+    };
+
+    joystick.addEventListener("pointerdown", (event) => {
+      if (pointerId !== null) {
+        return;
+      }
+      event.preventDefault();
+      pointerId = event.pointerId;
+      joystick.classList.add("is-active");
+      try {
+        joystick.setPointerCapture?.(event.pointerId);
+      } catch {
+        // Pointer capture is optional; document-level pointer events still release the stick.
+      }
+      updateJoystick(event);
+    });
+    joystick.addEventListener("pointermove", (event) => {
+      if (event.pointerId === pointerId) {
+        event.preventDefault();
+        updateJoystick(event);
+      }
+    });
+    joystick.addEventListener("pointerup", releaseJoystick);
+    joystick.addEventListener("pointercancel", releaseJoystick);
+    joystick.addEventListener("lostpointercapture", releaseJoystick);
+    window.addEventListener("pointerup", releaseJoystick);
+    window.addEventListener("pointercancel", releaseJoystick);
+    window.addEventListener("blur", () => {
+      if (pointerId !== null) {
+        releaseJoystick({ pointerId });
+      }
+    });
+  }
+
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       (shell || canvas).requestFullscreen?.();
@@ -3391,6 +3491,7 @@
   });
   window.addEventListener("pagehide", saveAutosave);
   bindTouchControls();
+  bindTouchJoystick();
 
   function renderGameToText() {
     const camera = state.cameraX;
@@ -3444,7 +3545,7 @@
       buildId: BUILD_ID,
       mode: state.mode,
       coordinateSystem: "canvas/world pixels, origin top-left, x right, y down",
-      cameraFraming: isPhonePortraitViewport() ? "phone-centered" : "desktop-forward",
+      cameraFraming: isPhoneViewport() ? "phone-centered" : "desktop-forward",
       cameraX: Math.round(state.cameraX),
       player: {
         x: Math.round(state.player.x),
