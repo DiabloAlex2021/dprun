@@ -20,6 +20,8 @@
   const HOTDOG_SHOT_SPEED = 420;
   const HOTDOG_SHOT_RANGE = 700;
   const HOTDOG_SHOT_INTERVAL = 2.6;
+  const KICKED_MONSTER_DURATION = 1.35;
+  const KICKED_MONSTER_FADE_START = 0.88;
   const FRAME_DT = 1 / 60;
   const PLAYER_START_X = 128;
   const PLAYER_W = 72;
@@ -28,7 +30,7 @@
   const PLAYER_POWER_SCALE = 1.5;
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "crouch-visual-balance-2026-07-14-14";
+  const BUILD_ID = "monster-kick-roll-2026-07-14-15";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -482,6 +484,12 @@
         vx: 86,
         alive: true,
         stomped: 0,
+        defeatType: null,
+        defeatTimer: 0,
+        roll: 0,
+        knockbackVx: 0,
+        knockbackVy: 0,
+        kickBounces: 0,
         kind,
         shootCooldown: kind === "hotdog" ? 0.9 + (sequenceIndex % 3) * 0.35 : 0,
       });
@@ -938,7 +946,11 @@
     const playerCenter = state.player.x + state.player.w / 2;
     for (const enemy of state.enemies) {
       if (!enemy.alive) {
-        enemy.stomped += dt;
+        if (enemy.defeatType === "kicked") {
+          updateKickedMonster(enemy, dt);
+        } else {
+          enemy.stomped += dt;
+        }
         continue;
       }
       enemy.x += enemy.vx * dt;
@@ -960,6 +972,28 @@
         enemy.shootCooldown = HOTDOG_SHOT_INTERVAL;
       }
     }
+  }
+
+  function updateKickedMonster(enemy, dt) {
+    enemy.defeatTimer = (enemy.defeatTimer || 0) + dt;
+    enemy.knockbackVy = (enemy.knockbackVy || 0) + GRAVITY * 0.85 * dt;
+    enemy.x += (enemy.knockbackVx || 0) * dt;
+    enemy.y += enemy.knockbackVy * dt;
+    enemy.roll = (enemy.roll || 0) + ((enemy.knockbackVx || 0) / (enemy.w * 0.38)) * dt;
+
+    if (enemy.y + enemy.h < SURFACE_Y) {
+      return;
+    }
+
+    enemy.y = SURFACE_Y - enemy.h;
+    if (enemy.knockbackVy > 180 && (enemy.kickBounces || 0) < 1) {
+      enemy.knockbackVy *= -0.36;
+      enemy.kickBounces = (enemy.kickBounces || 0) + 1;
+      return;
+    }
+
+    enemy.knockbackVy = 0;
+    enemy.knockbackVx = approach(enemy.knockbackVx || 0, 0, 190 * dt);
   }
 
   function fireSausage(enemy, direction) {
@@ -1107,8 +1141,16 @@
       if (!enemy.alive || !aabb(hitbox, enemy)) {
         continue;
       }
+      const direction = player.facing > 0 ? 1 : -1;
       enemy.alive = false;
       enemy.stomped = 0;
+      enemy.defeatType = "kicked";
+      enemy.defeatTimer = 0;
+      enemy.roll = 0;
+      enemy.knockbackVx = direction * (620 + Math.abs(player.vx) * 0.4);
+      enemy.knockbackVy = -460;
+      enemy.kickBounces = 0;
+      enemy.vx = direction * Math.max(86, Math.abs(enemy.vx || 0));
       state.score += 250;
       toast("Monster kicked out");
       burst(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, "#ffb035", 24);
@@ -1135,6 +1177,7 @@
         }
         enemy.alive = false;
         enemy.stomped = 0;
+        enemy.defeatType = "ball";
         item.taken = true;
         state.score += 250;
         toast("Monster knocked out");
@@ -1156,6 +1199,7 @@
       if (player.vy > 0 && wasAbove) {
         enemy.alive = false;
         enemy.stomped = 0;
+        enemy.defeatType = "stomped";
         player.vy = -560;
         player.onGround = false;
         state.score += 200;
@@ -1995,7 +2039,23 @@
 
   function drawEnemies() {
     for (const enemy of state.enemies) {
-      if ((!enemy.alive && enemy.stomped > 0.55) || !isVisible(enemy.x, enemy.w)) {
+      const kicked = !enemy.alive && enemy.defeatType === "kicked";
+      const defeatFinished = kicked ? enemy.defeatTimer >= KICKED_MONSTER_DURATION : !enemy.alive && enemy.stomped > 0.55;
+      if (defeatFinished || !isVisible(enemy.x, enemy.w)) {
+        continue;
+      }
+      if (kicked) {
+        const fade = enemy.defeatTimer <= KICKED_MONSTER_FADE_START
+          ? 1
+          : 1 - (enemy.defeatTimer - KICKED_MONSTER_FADE_START) / (KICKED_MONSTER_DURATION - KICKED_MONSTER_FADE_START);
+        ctx.save();
+        ctx.globalAlpha = clamp(fade, 0, 1);
+        ctx.translate(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2);
+        ctx.rotate(enemy.roll || 0);
+        ctx.scale((enemy.knockbackVx || enemy.vx) < 0 ? -1 : 1, 1);
+        ctx.translate(0, enemy.h / 2);
+        drawFoodMonster(enemy.kind, enemy.w, enemy.h, false);
+        ctx.restore();
         continue;
       }
       const squash = enemy.alive ? 1 : Math.max(0.2, 1 - enemy.stomped * 2.2);
@@ -2952,14 +3012,16 @@
     ctx.restore();
   })();
 
-  function drawFoodMonster(kind, w, h) {
+  function drawFoodMonster(kind, w, h, showShadow = true) {
     const emoji = FOOD_MONSTER_EMOJI[kind] || FOOD_MONSTER_EMOJI.burger;
     const size = Math.round(h * 1.15);
     ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-    ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.42, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (showShadow) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.beginPath();
+      ctx.ellipse(0, 2, w * 0.42, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.font = `${size}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
@@ -3344,12 +3406,19 @@
         vx: item.type === "ball" ? Math.round(item.vx || 0) : undefined,
       }));
     const visibleEnemies = state.enemies
-      .filter((enemy) => enemy.alive && enemy.x + enemy.w >= camera && enemy.x <= camera + VIEW_W)
+      .filter((enemy) => {
+        const defeatVisible = enemy.defeatType === "kicked"
+          ? enemy.defeatTimer < KICKED_MONSTER_DURATION
+          : enemy.stomped <= 0.55;
+        return (enemy.alive || defeatVisible) && enemy.x + enemy.w >= camera && enemy.x <= camera + VIEW_W;
+      })
       .map((enemy) => ({
         kind: enemy.kind,
         x: Math.round(enemy.x),
         y: Math.round(enemy.y),
-        dir: enemy.vx < 0 ? "left" : "right",
+        dir: (enemy.defeatType === "kicked" ? enemy.knockbackVx : enemy.vx) < 0 ? "left" : "right",
+        state: enemy.alive ? "patrol" : enemy.defeatType || "stomped",
+        rotation: enemy.defeatType === "kicked" ? Number((enemy.roll || 0).toFixed(2)) : undefined,
       }));
     const visibleEnemyProjectiles = state.enemyProjectiles
       .filter((projectile) => projectile.active && projectile.x + projectile.w >= camera && projectile.x <= camera + VIEW_W)
