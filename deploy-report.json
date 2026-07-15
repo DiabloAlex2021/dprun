@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-14T23:30:23.971Z",
-  "totalFiles": 78,
+  "generatedAt": "2026-07-15T18:46:23.814Z",
+  "totalFiles": 79,
   "requiredRuntimeAssets": [
     "index.html",
     "styles.css",
@@ -8,6 +8,7 @@
     "penaltykick.html",
     ".nojekyll",
     "assets/level_backdrop.png",
+    "assets/boot_projectile.png",
     "extracted_game_art_elements/characters/yellow/frame_000.png",
     "extracted_game_art_elements/characters/yellow/frame_001.png",
     "extracted_game_art_elements/characters/yellow/frame_002.png",

@@ -20,6 +20,10 @@
   const HOTDOG_SHOT_SPEED = 420;
   const HOTDOG_SHOT_RANGE = 700;
   const HOTDOG_SHOT_INTERVAL = 2.6;
+  const BOOT_PROJECTILE_SPEED = 860;
+  const BOOT_PROJECTILE_GRAVITY = 520;
+  const BOOT_PROJECTILE_LIFETIME = 1.55;
+  const BOOT_PROJECTILE_LIMIT = 3;
   const KICKED_MONSTER_DURATION = 1.35;
   const KICKED_MONSTER_FADE_START = 0.88;
   const FRAME_DT = 1 / 60;
@@ -31,7 +35,7 @@
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "mobile-zoom-lock-2026-07-14-20";
+  const BUILD_ID = "powered-boot-projectile-2026-07-15-21";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -70,6 +74,7 @@
     collectibles: [],
     enemies: [],
     enemyProjectiles: [],
+    bootProjectiles: [],
     launchedBricks: [],
     particles: [],
     pipe: null,
@@ -203,6 +208,10 @@
 
   const levelBackdrop = new Image();
   trackImage(levelBackdrop, LEVEL_BACKDROP_FILE);
+
+  const BOOT_PROJECTILE_CROP = { x: 538, y: 149, w: 501, h: 713 };
+  const bootProjectileImage = new Image();
+  trackImage(bootProjectileImage, "assets/boot_projectile.png");
 
   const OPTIONAL_POSE_FILES_BY_CHARACTER = {
     yellow: {
@@ -465,6 +474,7 @@
     state.collectibles = level.collectibles;
     state.enemies = level.enemies;
     state.enemyProjectiles = [];
+    state.bootProjectiles = [];
     state.launchedBricks = [];
     state.pipe = level.pipe;
     state.particles = [];
@@ -701,6 +711,7 @@
     updatePlayer(dt);
     updateEnemies(dt);
     updateEnemyProjectiles(dt);
+    updateBootProjectiles(dt);
     updateSoccerBalls(dt);
     collectItems();
     checkSoccerEnemyContact();
@@ -1055,6 +1066,55 @@
     state.enemyProjectiles = state.enemyProjectiles.filter((projectile) => projectile.active);
   }
 
+  function updateBootProjectiles(dt) {
+    for (const projectile of state.bootProjectiles) {
+      if (!projectile.active) {
+        continue;
+      }
+
+      projectile.life -= dt;
+      projectile.vy += BOOT_PROJECTILE_GRAVITY * dt;
+      projectile.x += projectile.vx * dt;
+      projectile.y += projectile.vy * dt;
+      projectile.rotation += projectile.spin * dt;
+
+      if (projectile.life <= 0 || projectile.x + projectile.w < 0 || projectile.x > WORLD_W) {
+        projectile.active = false;
+        continue;
+      }
+
+      const struckBlock = state.blocks.some((block) => aabb(projectile, block));
+      if (struckBlock) {
+        projectile.active = false;
+        continue;
+      }
+
+      for (const enemy of state.enemies) {
+        if (!enemy.alive || !aabb(projectile, enemy)) {
+          continue;
+        }
+        knockEnemyOut(enemy, projectile.vx < 0 ? -1 : 1, 120, "Boot strike");
+        projectile.active = false;
+        break;
+      }
+
+      if (!projectile.active) {
+        continue;
+      }
+
+      if (projectile.y + projectile.h >= SURFACE_Y) {
+        projectile.y = SURFACE_Y - projectile.h;
+        if (projectile.bounces < 1) {
+          projectile.vy = -Math.max(180, Math.abs(projectile.vy) * 0.34);
+          projectile.bounces += 1;
+        } else {
+          projectile.active = false;
+        }
+      }
+    }
+    state.bootProjectiles = state.bootProjectiles.filter((projectile) => projectile.active);
+  }
+
   function updateSoccerBalls(dt) {
     for (const item of state.collectibles) {
       if (item.taken || item.type !== "ball") {
@@ -1153,6 +1213,9 @@
       return;
     }
     player.kickTimer = 0.22;
+    if (player.poweredUp) {
+      launchBootProjectile(player);
+    }
 
     const reach = 64;
     const hitbox = {
@@ -1167,18 +1230,7 @@
         continue;
       }
       const direction = player.facing > 0 ? 1 : -1;
-      enemy.alive = false;
-      enemy.stomped = 0;
-      enemy.defeatType = "kicked";
-      enemy.defeatTimer = 0;
-      enemy.roll = 0;
-      enemy.knockbackVx = direction * (620 + Math.abs(player.vx) * 0.4);
-      enemy.knockbackVy = -460;
-      enemy.kickBounces = 0;
-      enemy.vx = direction * Math.max(86, Math.abs(enemy.vx || 0));
-      state.score += 250;
-      toast("Monster kicked out");
-      burst(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, "#ffb035", 24);
+      knockEnemyOut(enemy, direction, Math.abs(player.vx) * 0.4, "Monster kicked out");
     }
 
     for (const item of state.collectibles) {
@@ -1189,6 +1241,44 @@
         kickSoccerBall(item, player);
       }
     }
+  }
+
+  function launchBootProjectile(player) {
+    if (state.bootProjectiles.length >= BOOT_PROJECTILE_LIMIT) {
+      return;
+    }
+    const direction = player.facing > 0 ? 1 : -1;
+    const w = 52;
+    const h = 44;
+    state.bootProjectiles.push({
+      x: direction > 0 ? player.x + player.w - 8 : player.x - w + 8,
+      y: player.y + player.h - h - 28,
+      w,
+      h,
+      vx: direction * (BOOT_PROJECTILE_SPEED + Math.abs(player.vx) * 0.22),
+      vy: -180,
+      rotation: direction * -0.28,
+      spin: direction * 9.5,
+      life: BOOT_PROJECTILE_LIFETIME,
+      bounces: 0,
+      active: true,
+    });
+    toast("Power boot launched");
+  }
+
+  function knockEnemyOut(enemy, direction, extraSpeed = 0, message = "Monster kicked out") {
+    enemy.alive = false;
+    enemy.stomped = 0;
+    enemy.defeatType = "kicked";
+    enemy.defeatTimer = 0;
+    enemy.roll = 0;
+    enemy.knockbackVx = direction * (620 + extraSpeed);
+    enemy.knockbackVy = -460;
+    enemy.kickBounces = 0;
+    enemy.vx = direction * Math.max(86, Math.abs(enemy.vx || 0));
+    state.score += 250;
+    toast(message);
+    burst(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, "#ffb035", 24);
   }
 
   function checkSoccerEnemyContact() {
@@ -1373,6 +1463,7 @@
       collectibles: clonePlain(state.collectibles),
       enemies: clonePlain(state.enemies),
       enemyProjectiles: clonePlain(state.enemyProjectiles),
+      bootProjectiles: clonePlain(state.bootProjectiles),
       pipe: clonePlain(state.pipe),
     };
   }
@@ -1408,6 +1499,7 @@
     state.collectibles = Array.isArray(snapshot.collectibles) ? snapshot.collectibles : state.collectibles;
     state.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies : state.enemies;
     state.enemyProjectiles = Array.isArray(snapshot.enemyProjectiles) ? snapshot.enemyProjectiles : [];
+    state.bootProjectiles = Array.isArray(snapshot.bootProjectiles) ? snapshot.bootProjectiles : [];
     state.pipe = snapshot.pipe || state.pipe;
     state.launchedBricks = [];
     state.particles = [];
@@ -1814,6 +1906,7 @@
     drawCollectibles();
     drawEnemies();
     drawEnemyProjectiles();
+    drawBootProjectiles();
     drawPipe();
     drawPlayer();
     drawParticles();
@@ -2104,6 +2197,40 @@
       }
       ctx.rotate(Math.sin(state.elapsed * 18 + projectile.x * 0.02) * 0.08);
       drawSausageProjectile(projectile.w, projectile.h);
+      ctx.restore();
+    }
+  }
+
+  function drawBootProjectiles() {
+    for (const projectile of state.bootProjectiles) {
+      if (!projectile.active || !isVisible(projectile.x, projectile.w)) {
+        continue;
+      }
+      ctx.save();
+      ctx.translate(projectile.x + projectile.w / 2, projectile.y + projectile.h / 2);
+      ctx.rotate(projectile.rotation);
+      if (projectile.vx < 0) {
+        ctx.scale(-1, 1);
+      }
+      if (bootProjectileImage.complete && bootProjectileImage.naturalWidth > 0) {
+        ctx.drawImage(
+          bootProjectileImage,
+          BOOT_PROJECTILE_CROP.x,
+          BOOT_PROJECTILE_CROP.y,
+          BOOT_PROJECTILE_CROP.w,
+          BOOT_PROJECTILE_CROP.h,
+          -24,
+          -34,
+          48,
+          68,
+        );
+      } else {
+        ctx.fillStyle = "#111111";
+        roundRect(-13, -25, 24, 48, 7);
+        ctx.fill();
+        roundRect(-13, 10, 36, 16, 7);
+        ctx.fill();
+      }
       ctx.restore();
     }
   }
@@ -3574,6 +3701,17 @@
         y: Math.round(projectile.y),
         dir: projectile.vx < 0 ? "left" : "right",
       }));
+    const visibleBootProjectiles = state.bootProjectiles
+      .filter((projectile) => projectile.active && projectile.x + projectile.w >= camera && projectile.x <= camera + VIEW_W)
+      .slice(0, BOOT_PROJECTILE_LIMIT)
+      .map((projectile) => ({
+        type: "boot",
+        x: Math.round(projectile.x),
+        y: Math.round(projectile.y),
+        dir: projectile.vx < 0 ? "left" : "right",
+        rotation: Number(projectile.rotation.toFixed(2)),
+        life: Number(projectile.life.toFixed(2)),
+      }));
     const visibleBlocks = state.blocks
       .filter((block) => block.x + block.w >= camera && block.x <= camera + VIEW_W)
       .slice(0, 18)
@@ -3619,6 +3757,7 @@
       visibleCollectibles,
       visibleEnemies,
       visibleEnemyProjectiles,
+      visibleBootProjectiles,
       visibleBlocks,
       effects: {
         activeParticles: state.particles.length,
