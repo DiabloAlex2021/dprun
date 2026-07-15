@@ -31,7 +31,7 @@
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "powered-passage-spacing-2026-07-14-17";
+  const BUILD_ID = "mobile-zoom-lock-2026-07-14-20";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
@@ -217,6 +217,17 @@
     },
   };
 
+  const FRAME_ALPHA_BOTTOMS = {
+    yellow: [292, 295, 294, 292, 291, 292, 293, 293, 290, 289, 289, 290, 292, 296, 294, 292, 289, 291, 291, 292],
+    scout: [363, 364, 369, 369, 368, 367, 366, 363, 366, 365, 365, 364, 364, 369, 368, 367, 363, 366, 366, 365],
+  };
+
+  const POSE_ALPHA_CROPS = {
+    jump: { x: 105, y: 79, w: 670, h: 1396 },
+    kick: { x: 9, y: 15, w: 177, h: 280 },
+    kneel: { x: 205, y: 116, w: 616, h: 1218 },
+  };
+
   function computeAlphaCrop(img) {
     try {
       const scratch = document.createElement("canvas");
@@ -249,11 +260,15 @@
   }
 
   function loadCharacterSet(character) {
-    character.frames = buildFrameSources(character).map((src) => {
+    character.frames = buildFrameSources(character).map((src, index) => {
       const img = new Image();
+      img.fallbackAlphaBottom = FRAME_ALPHA_BOTTOMS[character.id]?.[index] || null;
       img.addEventListener("load", () => {
         character.loadedFrames += 1;
-        img.alphaCrop = computeAlphaCrop(img);
+        const computedCrop = computeAlphaCrop(img);
+        if (computedCrop) {
+          img.alphaCrop = computedCrop;
+        }
       });
       img.addEventListener("error", () => {
         character.loadedFrames += 1;
@@ -265,9 +280,17 @@
     const optionalPoseFiles = OPTIONAL_POSE_FILES_BY_CHARACTER[character.id] || {};
     for (const [pose, file] of Object.entries(optionalPoseFiles)) {
       const img = new Image();
+      const fallbackCrop = POSE_ALPHA_CROPS[pose];
+      if (fallbackCrop) {
+        img.alphaCrop = { ...fallbackCrop };
+        img.trimCrop = { ...fallbackCrop };
+      }
       img.addEventListener("load", () => {
-        img.alphaCrop = computeAlphaCrop(img);
-        img.trimCrop = img.alphaCrop;
+        const computedCrop = computeAlphaCrop(img);
+        if (computedCrop) {
+          img.alphaCrop = computedCrop;
+          img.trimCrop = computedCrop;
+        }
       });
       trackImage(img, `${character.folder}/${file}`);
       character.poses[pose] = img;
@@ -2173,7 +2196,7 @@
     ctx.restore();
   }
 
-  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: 0.92 };
+  const POSE_VISUAL_SCALE = { kick: 1, jump: 1, kneel: 0.9 };
   const POSE_BASELINE_OFFSET = { kneel: 6 };
 
   function readyPose(name) {
@@ -2247,7 +2270,9 @@
       const drawH = visualH;
       const drawW = drawH * (source.w / source.h);
       const drawX = x + w / 2 - drawW / 2;
-      const alphaBottom = frame.alphaCrop ? frame.alphaCrop.y + frame.alphaCrop.h : source.y + source.h;
+      const alphaBottom = frame.alphaCrop
+        ? frame.alphaCrop.y + frame.alphaCrop.h
+        : frame.fallbackAlphaBottom || source.y + source.h;
       const bottomPadding = Math.max(0, source.y + source.h - alphaBottom);
       const alphaBaselineOffset = (bottomPadding / source.h) * drawH;
       const drawY = y + h - drawH + baselineOffset + alphaBaselineOffset;
@@ -3475,6 +3500,22 @@
     });
   }
 
+  function bindMobileZoomLock() {
+    if (!window.matchMedia("(hover: none) and (pointer: coarse) and (max-width: 1024px)").matches) {
+      return;
+    }
+
+    const preventGestureZoom = (event) => event.preventDefault();
+    window.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+    window.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+    window.addEventListener("gestureend", preventGestureZoom, { passive: false });
+    document.addEventListener("touchmove", (event) => {
+      if (event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+  }
+
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       (shell || canvas).requestFullscreen?.();
@@ -3494,6 +3535,7 @@
   window.addEventListener("pagehide", saveAutosave);
   bindTouchControls();
   bindTouchJoystick();
+  bindMobileZoomLock();
 
   function renderGameToText() {
     const camera = state.cameraX;
