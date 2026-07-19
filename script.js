@@ -35,10 +35,13 @@
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "crouch-visual-84pct-2026-07-16-23";
+  const BUILD_ID = "sf-level-two-2026-07-18-24";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
-  const LEVEL_BACKDROP_FILE = "assets/level_backdrop.png";
+  const LEVEL_BACKDROP_FILES = {
+    1: "assets/level_backdrop.png",
+    2: "assets/sf_level_backdrop.png",
+  };
   const SHOW_CHARACTER_SELECTOR = true;
   const SHOW_RESPONSE_LABEL = false;
   const TEMP_HIDDEN_CHARACTER_IDS = new Set(["pilot"]);
@@ -54,6 +57,7 @@
 
   const state = {
     mode: "title",
+    level: 1,
     cameraX: 0,
     score: 0,
     lives: 3,
@@ -66,6 +70,7 @@
     messageTimer: 0,
     portalEntered: false,
     portalChoiceDismissed: false,
+    levelTwoUnlocked: false,
     endTitle: "",
     endSubtitle: "",
     elapsed: 0,
@@ -206,8 +211,11 @@
     veniceSign: "venice_beach_sign.png",
   });
 
-  const levelBackdrop = new Image();
-  trackImage(levelBackdrop, LEVEL_BACKDROP_FILE);
+  const levelBackdrops = Object.fromEntries(Object.entries(LEVEL_BACKDROP_FILES).map(([level, path]) => {
+    const image = new Image();
+    trackImage(image, path);
+    return [level, image];
+  }));
 
   const BOOT_PROJECTILE_CROP = { x: 538, y: 149, w: 501, h: 713 };
   const bootProjectileImage = new Image();
@@ -382,7 +390,8 @@
   }
 
   function isLevelBackdropReady() {
-    return Boolean(levelBackdrop.complete && levelBackdrop.naturalWidth > 0);
+    const backdrop = levelBackdrops[state.level] || levelBackdrops[1];
+    return Boolean(backdrop && backdrop.complete && backdrop.naturalWidth > 0);
   }
 
   function drawArt(name, x, y, w, h) {
@@ -431,12 +440,16 @@
     return currentCharacter().crops;
   }
 
-  function resetGame(mode = "title") {
-    const level = createLevel();
+  function resetGame(mode = "title", levelNumber = 1, carry = {}) {
+    const normalizedLevel = levelNumber === 2 ? 2 : 1;
+    const level = createLevel(normalizedLevel);
+    const poweredUp = Boolean(carry.poweredUp);
+    const startBody = playerBodySize(poweredUp, false);
     state.mode = mode;
+    state.level = normalizedLevel;
     state.cameraX = 0;
-    state.score = 0;
-    state.lives = 3;
+    state.score = Math.max(0, Math.floor(Number(carry.score) || 0));
+    state.lives = Math.max(1, Math.floor(Number(carry.lives) || 3));
     state.timer = 600;
     state.balls = 0;
     state.lattes = 0;
@@ -446,16 +459,17 @@
     state.messageTimer = 0;
     state.portalEntered = false;
     state.portalChoiceDismissed = false;
+    state.levelTwoUnlocked = false;
     state.endTitle = "";
     state.endSubtitle = "";
     state.elapsed = 0;
     state.player = {
       x: PLAYER_START_X,
-      y: SURFACE_Y - PLAYER_H,
+      y: SURFACE_Y - startBody.h,
       prevX: PLAYER_START_X,
-      prevY: SURFACE_Y - PLAYER_H,
-      w: PLAYER_W,
-      h: PLAYER_H,
+      prevY: SURFACE_Y - startBody.h,
+      w: startBody.w,
+      h: startBody.h,
       vx: 0,
       vy: 0,
       facing: 1,
@@ -467,7 +481,7 @@
       jumpStartedAt: -1,
       jumpStartY: -1,
       checkpointX: PLAYER_START_X,
-      poweredUp: false,
+      poweredUp,
       crouching: false,
     };
     state.blocks = level.blocks;
@@ -481,7 +495,8 @@
     state.cameraX = clampCameraX(cameraTargetX());
   }
 
-  function createLevel() {
+  function createLevel(levelNumber = 1) {
+    const isSanFrancisco = levelNumber === 2;
     const blocks = [];
     const collectibles = [];
     const enemies = [];
@@ -515,7 +530,7 @@
         h: 56,
         left,
         right,
-        vx: 86,
+        vx: isSanFrancisco ? 104 : 86,
         alive: true,
         stomped: 0,
         defeatType: null,
@@ -529,7 +544,7 @@
       });
     }
 
-    function buildSection(offset) {
+    function buildLosAngelesSection(offset) {
       const powerLatteCandidates = [];
       powerLatteCandidates.push(block(624 + offset, JUMP_HIT_BLOCK_Y, "question", "latte"));
       block(840 + offset, STEP_BLOCK_Y, "brick");
@@ -576,7 +591,54 @@
       monster(3570 + offset, 3290 + offset, 3660 + offset);
     }
 
+    function buildSanFranciscoSection(offset) {
+      const powerLatteCandidates = [];
+      powerLatteCandidates.push(block(560 + offset, 360, "question", "latte"));
+      block(748 + offset, 420, "brick");
+      block(900 + offset, 300, "latteBlock");
+      block(964 + offset, 300, "question", "ball");
+      block(1028 + offset, 300, "brick");
+      powerLatteCandidates.push(block(1240 + offset, 380, "question", "latte"));
+      block(1440 + offset, 280, "brick");
+      block(1504 + offset, 280, "brick");
+      block(1568 + offset, 280, "question", "ball");
+      block(1830 + offset, 420, "brick");
+      powerLatteCandidates.push(block(2050 + offset, 330, "question", "latte"));
+      block(2114 + offset, 330, "brick");
+      block(2178 + offset, 330, "brick");
+      const pairedLatteBlockX = 2450 + offset;
+      block(pairedLatteBlockX, HIGH_REWARD_BLOCK_Y, "latteBlock");
+      block(pairedLatteBlockX + TILE, HIGH_REWARD_BLOCK_Y, "latteBlock");
+      block(pairedLatteBlockX + TILE * 2 + POWERED_PASSAGE_GAP, HIGH_REWARD_BLOCK_Y, "question", "ball");
+      block(2920 + offset, STEP_BLOCK_Y, "brick");
+      powerLatteCandidates.push(block(3140 + offset, 300, "question", "latte"));
+      block(3204 + offset, 300, "brick");
+      block(3268 + offset, 300, "brick");
+      block(3460 + offset, STEP_BLOCK_Y, "brick");
+      powerLatteCandidates.push(block(3610 + offset, HIGH_REWARD_BLOCK_Y, "question", "latte"));
+
+      const powerLatteBlock = powerLatteCandidates[Math.floor(Math.random() * powerLatteCandidates.length)];
+      powerLatteBlock.powerLatte = true;
+
+      latte(680 + offset, JUMP_HIT_PICKUP_Y);
+      latte(1150 + offset, SURFACE_Y - 118);
+      latte(1900 + offset, HIGH_REWARD_PICKUP_Y);
+      latte(2700 + offset, SURFACE_Y - 118);
+      latte(3540 + offset, HIGH_REWARD_PICKUP_Y);
+
+      monster(820 + offset, 720 + offset, 1080 + offset);
+      monster(1320 + offset, 1180 + offset, 1600 + offset);
+      monster(1460 + offset, 1180 + offset, 1600 + offset);
+      monster(1940 + offset, 1800 + offset, 2220 + offset);
+      monster(2080 + offset, 1800 + offset, 2220 + offset);
+      monster(2760 + offset, 2640 + offset, 3000 + offset);
+      monster(2880 + offset, 2640 + offset, 3000 + offset);
+      monster(3380 + offset, 3300 + offset, 3700 + offset);
+      monster(3520 + offset, 3300 + offset, 3700 + offset);
+    }
+
     const SECTION_SPAN = 4300;
+    const buildSection = isSanFrancisco ? buildSanFranciscoSection : buildLosAngelesSection;
     buildSection(0);
     buildSection(SECTION_SPAN);
 
@@ -650,7 +712,7 @@
   }
 
   function isRunActive() {
-    return state.mode === "playing" || state.mode === "paused" || state.mode === "portalChoice";
+    return state.mode === "playing" || state.mode === "paused" || state.mode === "portalChoice" || state.mode === "levelChoice";
   }
 
   function saveAutosave() {
@@ -678,8 +740,8 @@
       return false;
     }
     restoreRunnerSnapshot(snapshot);
-    state.mode = "playing";
-    toast("Resumed your saved run");
+    state.mode = state.levelTwoUnlocked && state.level === 1 ? "levelChoice" : "playing";
+    toast(state.mode === "levelChoice" ? "Level II choice restored" : "Resumed your saved run");
     return true;
   }
 
@@ -1346,6 +1408,11 @@
       return;
     }
 
+    if (state.level === 2) {
+      finishLevelTwo();
+      return;
+    }
+
     if (!state.portalChoiceDismissed) {
       openPortalChoice();
     }
@@ -1377,6 +1444,44 @@
     state.mode = "playing";
     state.portalChoiceDismissed = true;
     toast("Penalty skipped. Move away to choose again.");
+  }
+
+  function finishLevelTwo() {
+    if (state.portalEntered || state.mode !== "playing") {
+      return;
+    }
+    state.portalEntered = true;
+    state.score += Math.ceil(state.timer) * 10;
+    state.mode = "won";
+    state.endTitle = "LEVEL II CLEAR";
+    state.endSubtitle = "San Francisco complete. Both city runs are cleared.";
+    clearAutosave();
+  }
+
+  function chooseLevelTwo(enterLevelTwo) {
+    if (state.mode !== "levelChoice") {
+      return;
+    }
+    if (!enterLevelTwo) {
+      state.levelTwoUnlocked = false;
+      state.mode = "won";
+      state.endTitle = "LEVEL I COMPLETE";
+      state.endSubtitle = "Penalty passed. Level II was not entered.";
+      clearAutosave();
+      return;
+    }
+
+    const carry = {
+      score: state.score,
+      lives: state.lives,
+      poweredUp: Boolean(state.player && state.player.poweredUp),
+    };
+    state.levelTwoUnlocked = false;
+    resetInputState();
+    clearAutosave();
+    resetGame("playing", 2, carry);
+    toast("Level 2: San Francisco");
+    saveAutosave();
   }
 
   function enterPenaltyPortal() {
@@ -1429,24 +1534,29 @@
     }
 
     const runnerScore = savedRunner ? state.score : Math.max(0, Math.floor(Number(result.runnerScore) || 0));
-    const bonus = result.win ? Math.max(0, Math.floor(Number(result.bonus) || 0)) : 0;
+    if (!result.win) {
+      return false;
+    }
+
+    const bonus = Math.max(0, Math.floor(Number(result.bonus) || 0));
     const goals = Math.max(0, Math.floor(Number(result.goals) || 0));
     state.score = runnerScore + bonus;
-    state.mode = "playing";
+    state.mode = "levelChoice";
+    state.levelTwoUnlocked = true;
     state.portalEntered = true;
     state.endTitle = "";
     state.endSubtitle = "";
     placePlayerAfterPortal();
-    state.message = result.win
-      ? `Penalty win: ${goals} goal${goals === 1 ? "" : "s"}, +${bonus} points`
-      : "Penalty lost: no bonus added this run.";
+    state.message = `Penalty passed: ${goals} goal${goals === 1 ? "" : "s"}, +${bonus} points`;
     state.messageTimer = 3.2;
+    saveAutosave();
     return true;
   }
 
   function createRunnerSnapshot() {
     return {
-      version: 9,
+      version: 10,
+      level: state.level,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
       score: state.score,
@@ -1457,6 +1567,7 @@
       totalBalls: state.totalBalls,
       totalLattes: state.totalLattes,
       portalEntered: state.portalEntered,
+      levelTwoUnlocked: state.levelTwoUnlocked,
       elapsed: state.elapsed,
       player: clonePlain(state.player),
       blocks: clonePlain(state.blocks),
@@ -1474,13 +1585,14 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 9 ? snapshot : null;
+      return snapshot && snapshot.version === 10 ? snapshot : null;
     } catch {
       return null;
     }
   }
 
   function restoreRunnerSnapshot(snapshot) {
+    state.level = snapshot.level === 2 ? 2 : 1;
     selectedCharacterIndex = clamp(Math.floor(Number(snapshot.characterIndex) || 0), 0, characterSets.length - 1);
     const restoredCameraX = Number(snapshot.cameraX) || 0;
     state.score = Math.max(0, Math.floor(Number(snapshot.score) || 0));
@@ -1492,6 +1604,7 @@
     state.totalLattes = Math.max(state.lattes, Math.floor(Number(snapshot.totalLattes) || state.totalLattes));
     state.portalEntered = Boolean(snapshot.portalEntered);
     state.portalChoiceDismissed = false;
+    state.levelTwoUnlocked = Boolean(snapshot.levelTwoUnlocked);
     state.elapsed = Math.max(0, Number(snapshot.elapsed) || 0);
     state.player = normalizePlayer(snapshot.player);
     state.cameraX = clampCameraX(restoredCameraX);
@@ -1694,6 +1807,8 @@
 
     if (state.mode === "title") {
       drawTitle();
+    } else if (state.mode === "levelChoice") {
+      drawLevelChoice();
     } else if (state.mode === "portalChoice") {
       drawPortalChoice();
     } else if (state.mode === "resetConfirm") {
@@ -1741,6 +1856,7 @@
       return false;
     }
 
+    const levelBackdrop = levelBackdrops[state.level] || levelBackdrops[1];
     const zoom = 1.2;
     const drawH = VIEW_H * zoom;
     const drawW = drawH * (levelBackdrop.naturalWidth / levelBackdrop.naturalHeight);
@@ -2310,16 +2426,22 @@
       ctx.stroke();
     }
 
-    drawSoccerBall(cx, pipe.y + 32, 18, state.elapsed * 3);
+    if (state.level === 2) {
+      drawLatteCup(cx - 18, pipe.y + 14, 36, 36);
+    } else {
+      drawSoccerBall(cx, pipe.y + 32, 18, state.elapsed * 3);
+    }
     ctx.font = "900 18px Arial Black, Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.lineWidth = 5;
     ctx.strokeStyle = "#17133f";
     ctx.fillStyle = "#f7ffad";
-    ctx.strokeText("PENALTY", cx, pipe.y - 32);
-    ctx.fillText("PENALTY", cx, pipe.y - 32);
-    ctx.strokeText("PORTAL", cx, pipe.y - 10);
-    ctx.fillText("PORTAL", cx, pipe.y - 10);
+    const topLabel = state.level === 2 ? "SF" : "PENALTY";
+    const bottomLabel = state.level === 2 ? "FINISH" : "PORTAL";
+    ctx.strokeText(topLabel, cx, pipe.y - 32);
+    ctx.fillText(topLabel, cx, pipe.y - 32);
+    ctx.strokeText(bottomLabel, cx, pipe.y - 10);
+    ctx.fillText(bottomLabel, cx, pipe.y - 10);
     ctx.restore();
   }
 
@@ -2487,6 +2609,11 @@
     strokeFillText(String(Math.ceil(state.timer)).padStart(3, "0"), VIEW_W - 250, 68);
     strokeFillText("SCORE", VIEW_W - 90, 32);
     strokeFillText(String(state.score).padStart(6, "0"), VIEW_W - 90, 68);
+
+    ctx.textAlign = "center";
+    ctx.font = "900 19px Arial Black, Arial, sans-serif";
+    ctx.fillStyle = state.level === 2 ? "#ffe25c" : "#ffffff";
+    strokeFillText(state.level === 2 ? "LEVEL II  SAN FRANCISCO" : "LEVEL I  LOS ANGELES", VIEW_W / 2, 22);
 
     if (SHOW_RESPONSE_LABEL && state.mode === "playing" && state.messageTimer > 0) {
       ctx.font = "800 24px Arial, sans-serif";
@@ -2850,6 +2977,64 @@
     strokeFillText(playText, x + panelW / 2, y + panelH - (phone ? 62 : 64));
     ctx.fillStyle = "#ffffff";
     strokeFillText(skipText, x + panelW / 2, y + panelH - (phone ? 34 : 32));
+    ctx.restore();
+  }
+
+  function drawLevelChoice() {
+    const phone = isPhoneViewport();
+    const rect = phone ? phoneVisibleCanvasRect() : { x: 0, y: 0, w: VIEW_W, h: VIEW_H };
+    const controlsTop = phone ? phoneControlsTopY() : VIEW_H;
+    const panelW = Math.min(phone ? rect.w - 30 : 650, 650);
+    const panelH = phone ? 244 : 238;
+    const x = rect.x + rect.w / 2 - panelW / 2;
+    const y = phone ? Math.max(rect.y + 132, controlsTop - panelH - 24) : 226;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(8, 20, 38, 0.46)";
+    ctx.fillRect(rect.x, rect.y, rect.w, Math.min(rect.h, controlsTop - rect.y));
+    ctx.fillStyle = "rgba(8, 35, 54, 0.92)";
+    roundRect(x, y, panelW, panelH, 16);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 226, 92, 0.86)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#10223b";
+    ctx.fillStyle = "#ffe25c";
+    ctx.lineWidth = phone ? 5 : 7;
+    ctx.font = `900 ${phone ? 27 : 40}px Arial Black, Arial, sans-serif`;
+    strokeFillText("PENALTY PASSED", x + panelW / 2, y + 18);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "rgba(0,0,0,0.48)";
+    ctx.lineWidth = 4;
+    ctx.font = `900 ${phone ? 21 : 30}px Arial Black, Arial, sans-serif`;
+    if (phone) {
+      strokeFillText("ENTER LEVEL II?", x + panelW / 2, y + 62);
+      strokeFillText("SAN FRANCISCO", x + panelW / 2, y + 90);
+    } else {
+      strokeFillText("ENTER LEVEL II: SAN FRANCISCO?", x + panelW / 2, y + 76);
+    }
+
+    ctx.font = `800 ${phone ? 15 : 21}px Arial, sans-serif`;
+    if (phone) {
+      strokeFillText("Score, lives, character, and", x + panelW / 2, y + 126);
+      strokeFillText("latte power carry forward.", x + panelW / 2, y + 147);
+    } else {
+      strokeFillText("Your score, lives, character, and latte power carry forward.", x + panelW / 2, y + 122);
+    }
+
+    const yesText = phone ? "Start / Jump: Enter" : "Enter / Space / Y: Enter Level II";
+    const noText = phone ? "Down / Left: No" : "Esc / Down / N: No";
+    ctx.font = `900 ${phone ? 18 : 23}px Arial Black, Arial, sans-serif`;
+    ctx.fillStyle = "#ffe25c";
+    ctx.strokeStyle = "#10223b";
+    strokeFillText(yesText, x + panelW / 2, y + panelH - (phone ? 66 : 68));
+    ctx.fillStyle = "#ffffff";
+    strokeFillText(noText, x + panelW / 2, y + panelH - (phone ? 36 : 36));
     ctx.restore();
   }
 
@@ -3371,6 +3556,15 @@
       return;
     }
 
+    if (state.mode === "levelChoice") {
+      if (code === "Enter" || code === "Space" || code === "ArrowUp" || code === "KeyW" || code === "KeyY") {
+        chooseLevelTwo(true);
+      } else if (code === "Escape" || code === "ArrowDown" || code === "KeyS" || code === "KeyN") {
+        chooseLevelTwo(false);
+      }
+      return;
+    }
+
     if (state.mode === "portalChoice") {
       if (code === "Enter" || code === "Space" || code === "ArrowUp" || code === "KeyW" || code === "KeyY") {
         choosePortal(true);
@@ -3452,6 +3646,14 @@
         confirmReset();
       } else if (control === "down" || control === "left") {
         cancelResetConfirmation();
+      }
+      return;
+    }
+    if (state.mode === "levelChoice") {
+      if (control === "start" || control === "jump") {
+        chooseLevelTwo(true);
+      } else if (control === "down" || control === "left") {
+        chooseLevelTwo(false);
       }
       return;
     }
@@ -3726,6 +3928,10 @@
     return JSON.stringify({
       buildId: BUILD_ID,
       mode: state.mode,
+      level: {
+        number: state.level,
+        city: state.level === 2 ? "San Francisco" : "Los Angeles",
+      },
       coordinateSystem: "canvas/world pixels, origin top-left, x right, y down",
       cameraFraming: isPhoneViewport() ? "phone-centered" : "desktop-forward",
       cameraX: Math.round(state.cameraX),
@@ -3754,6 +3960,10 @@
       score: state.score,
       lives: state.lives,
       time: Math.ceil(state.timer),
+      end: {
+        title: state.endTitle,
+        subtitle: state.endSubtitle,
+      },
       visibleCollectibles,
       visibleEnemies,
       visibleEnemyProjectiles,
@@ -3776,6 +3986,11 @@
         ready: missionComplete(),
         promptVisible: state.mode === "portalChoice",
         skippedUntilExit: state.portalChoiceDismissed,
+        purpose: state.level === 2 ? "finish-level-two" : "penalty-game",
+      },
+      levelTwoChoice: {
+        promptVisible: state.mode === "levelChoice",
+        unlockedByPenaltyWin: state.levelTwoUnlocked || state.level === 2,
       },
       resetConfirmation: {
         promptVisible: state.mode === "resetConfirm",

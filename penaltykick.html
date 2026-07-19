@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>Mochi Penalty! — Baggies vs Spoors</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
 <style>
   :root{
     --cream:#fdf3d7; --gold:#f5b62e; --deep-orange:#e07a1f; --ink:#4a3211;
@@ -16,7 +12,7 @@
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;overflow:hidden;background:#1c1408;}
   body{display:flex;align-items:center;justify-content:center;
-       font-family:'Baloo 2','Comic Sans MS',cursive;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+       font-family:'Arial Rounded MT Bold','Trebuchet MS',Arial,sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
 
   /* ---------- stage : virtual 1448 x 1086 ---------- */
   #stage{
@@ -289,7 +285,7 @@
       <div class="title" id="endTitle">YOU WIN!</div>
       <div class="sub" id="endSub"></div>
       <button class="btn" id="againBtn">PLAY AGAIN</button>
-      <button class="btn btn--secondary hidden" id="returnBtn">RETURN TO LA RUN</button>
+      <button class="btn btn--secondary hidden" id="returnBtn">CONTINUE</button>
     </div>
   </div>
 </div>
@@ -447,6 +443,7 @@ const px = (x,y,el)=>{ el.style.left=(x/V.W*100)+'%'; el.style.top=(y/V.H*100)+'
 /* -------- game state -------- */
 let state='menu';          // menu | aim | shooting | over
 let round=0, youScore=0, keeperScore=0;
+let lastResultWin=false;
 let sweepT=0, sweepDir=1, lastTs=0, angle=0, rafId=null;
 const RUNNER_SCORE_KEY='dpaiRunnerScore';
 const PENALTY_RESULT_KEY='dpaiPenaltyResult';
@@ -707,6 +704,7 @@ function nextShot(){
 function finish(){
   state='over';
   const win = youScore>keeperScore;
+  lastResultWin=win;
   const goals = Math.max(0, youScore);
   const bonus = win ? goals * PENALTY_GOAL_BONUS + PENALTY_WIN_BONUS : 0;
   $('endTitle').textContent = win? 'BAGGIES WIN!' : 'SPOORS WIN!';
@@ -716,19 +714,26 @@ function finish(){
     : `The keeper stopped you — <b>${youScore}</b> goal${youScore===1?'':'s'} in ${ROUNDS}. Rematch?`;
   if(launchedFromRunner){
     const runnerScore = Math.max(0, parseInt(readStorage(RUNNER_SCORE_KEY) || '0', 10) || 0);
-    writeStorage(PENALTY_RESULT_KEY, JSON.stringify({
-      win,
-      goals,
-      keeperScore,
-      bonus,
-      runnerScore,
-      completedAt: Date.now()
-    }));
-    $('endSub').innerHTML += win
-      ? `<br><b>+${bonus}</b> points will be added to LA Run.`
-      : `<br>No LA Run bonus this time.`;
-    $('returnBtn').classList.remove('hidden');
+    if(win){
+      writeStorage(PENALTY_RESULT_KEY, JSON.stringify({
+        win,
+        goals,
+        keeperScore,
+        bonus,
+        runnerScore,
+        completedAt: Date.now()
+      }));
+      $('endSub').innerHTML += `<br><b>+${bonus}</b> points earned. Continue to choose Level II.`;
+      $('againBtn').classList.add('hidden');
+      $('returnBtn').classList.remove('hidden');
+    } else {
+      removeStorage(PENALTY_RESULT_KEY);
+      $('endSub').innerHTML += `<br><b>Win the shootout to return and unlock Level II.</b>`;
+      $('againBtn').classList.remove('hidden');
+      $('returnBtn').classList.add('hidden');
+    }
   } else {
+    $('againBtn').classList.remove('hidden');
     $('returnBtn').classList.add('hidden');
   }
   $('endOverlay').classList.remove('hidden');
@@ -739,8 +744,10 @@ function finish(){
 
 function startGame(){
   round=0; youScore=0; keeperScore=0;
+  lastResultWin=false;
   $('scoreYou').textContent='0'; $('scoreKeeper').textContent='0';
   removeStorage(PENALTY_RESULT_KEY);
+  $('againBtn').classList.remove('hidden');
   $('returnBtn').classList.add('hidden');
   buildDots();
   $('startOverlay').classList.add('hidden');
@@ -759,7 +766,7 @@ addEventListener('keydown', e=>{
   if(e.code==='Space'||e.code==='Enter'){ e.preventDefault();
     if(state==='aim') shoot();
     else if(!$('startOverlay').classList.contains('hidden')) startGame();
-    else if(!$('endOverlay').classList.contains('hidden') && launchedFromRunner) returnToRunner();
+    else if(!$('endOverlay').classList.contains('hidden') && launchedFromRunner && lastResultWin) returnToRunner();
     else if(!$('endOverlay').classList.contains('hidden')) startGame();
   }
 });
@@ -767,6 +774,18 @@ $('startBtn').addEventListener('click', e=>{e.stopPropagation(); ac(); startGame
 $('againBtn').addEventListener('click', e=>{e.stopPropagation(); startGame();});
 $('returnBtn').addEventListener('click', e=>{e.stopPropagation(); returnToRunner();});
 $('soundBtn').addEventListener('click', e=>{e.stopPropagation(); muted=!muted; $('soundBtn').textContent=muted?'🔇':'🔊';});
+
+window.render_penalty_to_text=()=>JSON.stringify({
+  mode:state,
+  round,
+  youScore,
+  keeperScore,
+  launchedFromRunner,
+  lastResultWin,
+  retryVisible:!$('againBtn').classList.contains('hidden'),
+  continueVisible:!$('returnBtn').classList.contains('hidden'),
+  storedWinResult:Boolean(readStorage(PENALTY_RESULT_KEY))
+});
 
 /* -------- preload alt sprites & go -------- */
 Object.values(ASSETS).forEach(src=>{ const i=new Image(); i.src=src; });
