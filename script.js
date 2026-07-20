@@ -10,6 +10,22 @@
   const WORLD_W = 8600;
   const GROUND_Y = 616;
   const SURFACE_Y = GROUND_Y - 30;
+  const SF_SECTION_SPAN = 4300;
+  const SF_ROAD_PROFILE = [
+    { start: 0, end: 620, fromY: SURFACE_Y, toY: SURFACE_Y },
+    { start: 620, end: 900, fromY: SURFACE_Y, toY: SURFACE_Y - 72 },
+    { start: 900, end: 1220, fromY: SURFACE_Y - 72, toY: SURFACE_Y - 72 },
+    { start: 1220, end: 1540, fromY: SURFACE_Y - 72, toY: SURFACE_Y },
+    { start: 1540, end: 1980, fromY: SURFACE_Y, toY: SURFACE_Y },
+    { start: 1980, end: 2200, fromY: SURFACE_Y, toY: SURFACE_Y - 48 },
+    { start: 2200, end: 2520, fromY: SURFACE_Y - 48, toY: SURFACE_Y - 48 },
+    { start: 2520, end: 2780, fromY: SURFACE_Y - 48, toY: SURFACE_Y },
+    { start: 2780, end: 3280, fromY: SURFACE_Y, toY: SURFACE_Y },
+    { start: 3280, end: 3500, fromY: SURFACE_Y, toY: SURFACE_Y - 64 },
+    { start: 3500, end: 3740, fromY: SURFACE_Y - 64, toY: SURFACE_Y - 64 },
+    { start: 3740, end: 3960, fromY: SURFACE_Y - 64, toY: SURFACE_Y },
+    { start: 3960, end: SF_SECTION_SPAN, fromY: SURFACE_Y, toY: SURFACE_Y },
+  ];
   const TILE = 64;
   const GRAVITY = 2200;
   const MOVE_ACCEL = 2700;
@@ -35,7 +51,7 @@
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "test-level-selector-2026-07-19-26";
+  const BUILD_ID = "sf-road-ramps-2026-07-20-27";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILES = {
@@ -57,6 +73,17 @@
   let selectedTestLevel = 1;
   let resetConfirmReturnMode = null;
   const assetStatus = new Map();
+
+  function terrainSurfaceYAt(worldX, levelNumber = state.level) {
+    if (levelNumber !== 2) {
+      return SURFACE_Y;
+    }
+    const localX = ((worldX % SF_SECTION_SPAN) + SF_SECTION_SPAN) % SF_SECTION_SPAN;
+    const segment = SF_ROAD_PROFILE.find((item) => localX >= item.start && localX <= item.end) || SF_ROAD_PROFILE[0];
+    const span = Math.max(1, segment.end - segment.start);
+    const progress = clamp((localX - segment.start) / span, 0, 1);
+    return segment.fromY + (segment.toY - segment.fromY) * progress;
+  }
 
   const state = {
     mode: "title",
@@ -494,11 +521,12 @@
     state.endTitle = "";
     state.endSubtitle = "";
     state.elapsed = 0;
+    const startSurfaceY = terrainSurfaceYAt(PLAYER_START_X + startBody.w * 0.5, normalizedLevel);
     state.player = {
       x: PLAYER_START_X,
-      y: SURFACE_Y - startBody.h,
+      y: startSurfaceY - startBody.h,
       prevX: PLAYER_START_X,
-      prevY: SURFACE_Y - startBody.h,
+      prevY: startSurfaceY - startBody.h,
       w: startBody.w,
       h: startBody.h,
       vx: 0,
@@ -557,7 +585,7 @@
       monsterIndex += 1;
       enemies.push({
         x,
-        y: SURFACE_Y - 56,
+        y: terrainSurfaceYAt(x + 28, levelNumber) - 56,
         w: 56,
         h: 56,
         left,
@@ -623,62 +651,97 @@
       monster(3570 + offset, 3290 + offset, 3660 + offset);
     }
 
-    function buildSanFranciscoSection(offset) {
+    function buildSanFranciscoSection(offset, sectionIndex = 0) {
+      const alternate = sectionIndex % 2 === 1;
       const powerLatteCandidates = [];
-      powerLatteCandidates.push(block(560 + offset, 360, "question", "latte"));
-      block(748 + offset, 420, "brick");
-      block(900 + offset, 300, "latteBlock");
-      block(964 + offset, 300, "question", "ball");
-      block(1028 + offset, 300, "brick");
-      powerLatteCandidates.push(block(1240 + offset, 380, "question", "latte"));
-      block(1440 + offset, 280, "brick");
-      block(1504 + offset, 280, "brick");
-      block(1568 + offset, 280, "question", "ball");
-      block(1830 + offset, 420, "brick");
-      powerLatteCandidates.push(block(2050 + offset, 330, "question", "latte"));
-      block(2114 + offset, 330, "brick");
-      block(2178 + offset, 330, "brick");
-      const pairedLatteBlockX = 2450 + offset;
-      block(pairedLatteBlockX, HIGH_REWARD_BLOCK_Y, "latteBlock");
-      block(pairedLatteBlockX + TILE, HIGH_REWARD_BLOCK_Y, "latteBlock");
-      block(pairedLatteBlockX + TILE * 2 + POWERED_PASSAGE_GAP, HIGH_REWARD_BLOCK_Y, "question", "ball");
-      block(2920 + offset, STEP_BLOCK_Y, "brick");
-      powerLatteCandidates.push(block(3140 + offset, 300, "question", "latte"));
-      block(3204 + offset, 300, "brick");
-      block(3268 + offset, 300, "brick");
-      block(3460 + offset, STEP_BLOCK_Y, "brick");
-      powerLatteCandidates.push(block(3610 + offset, HIGH_REWARD_BLOCK_Y, "question", "latte"));
+
+      function sfBlock(localX, clearance, type = "brick", content = null) {
+        const worldX = offset + localX;
+        const roadY = terrainSurfaceYAt(worldX + TILE * 0.5, 2);
+        return block(worldX, roadY - clearance, type, content);
+      }
+
+      function sfLatte(localX, heightAboveRoad) {
+        const worldX = offset + localX;
+        const roadY = terrainSurfaceYAt(worldX + 21, 2);
+        latte(worldX, roadY - heightAboveRoad);
+      }
+
+      // SF uses small roadside clusters instead of Level I's long floating rows.
+      // Every hill has a readable pickup trail, and the opening ramp is enemy-free.
+      powerLatteCandidates.push(sfBlock(alternate ? 540 : 500, 158, "question", "latte"));
+
+      sfBlock(alternate ? 880 : 910, 190, "latteBlock");
+      sfBlock(alternate ? 944 : 974, 190, "question", "ball");
+      sfBlock(alternate ? 1008 : 1038, 190, "latteBlock");
+
+      sfBlock(alternate ? 1260 : 1300, 166, "brick");
+      powerLatteCandidates.push(sfBlock(alternate ? 1324 : 1364, 166, "question", "latte"));
+
+      sfBlock(alternate ? 1640 : 1680, 160, "brick");
+      powerLatteCandidates.push(sfBlock(alternate ? 1704 : 1744, 160, "question", "latte"));
+      sfBlock(alternate ? 1768 : 1808, 160, "brick");
+
+      sfBlock(alternate ? 2180 : 2220, 184, "brick");
+      sfBlock(alternate ? 2244 : 2284, 184, "question", "ball");
+      sfBlock(alternate ? 2308 : 2348, 184, "brick");
+
+      powerLatteCandidates.push(sfBlock(alternate ? 2760 : 2860, 158, "question", "latte"));
+      sfBlock(alternate ? 3000 : 3070, 174, "latteBlock");
+      sfBlock(alternate ? 3064 : 3134, 174, "question", "ball");
+      sfBlock(alternate ? 3128 : 3198, 174, "latteBlock");
+
+      sfBlock(alternate ? 3420 : 3480, 190, "brick");
+      powerLatteCandidates.push(sfBlock(alternate ? 3484 : 3544, 190, "question", "latte"));
+      sfBlock(alternate ? 3548 : 3608, 190, "brick");
 
       const powerLatteBlock = powerLatteCandidates[Math.floor(Math.random() * powerLatteCandidates.length)];
       powerLatteBlock.powerLatte = true;
 
-      latte(680 + offset, JUMP_HIT_PICKUP_Y);
-      latte(1150 + offset, SURFACE_Y - 118);
-      latte(1900 + offset, HIGH_REWARD_PICKUP_Y);
-      latte(2700 + offset, SURFACE_Y - 118);
-      latte(3540 + offset, HIGH_REWARD_PICKUP_Y);
+      const pickupTrail = alternate
+        ? [[690, 82], [1090, 132], [1500, 88], [2460, 142], [3710, 92]]
+        : [[720, 82], [1120, 132], [1510, 88], [2440, 142], [3680, 92]];
+      for (const [localX, height] of pickupTrail) {
+        sfLatte(localX, height);
+      }
 
-      monster(820 + offset, 720 + offset, 1080 + offset);
-      monster(1320 + offset, 1180 + offset, 1600 + offset);
-      monster(1460 + offset, 1180 + offset, 1600 + offset);
-      monster(1940 + offset, 1800 + offset, 2220 + offset);
-      monster(2080 + offset, 1800 + offset, 2220 + offset);
-      monster(2760 + offset, 2640 + offset, 3000 + offset);
-      monster(2880 + offset, 2640 + offset, 3000 + offset);
-      monster(3380 + offset, 3300 + offset, 3700 + offset);
-      monster(3520 + offset, 3300 + offset, 3700 + offset);
+      // Patrols begin after the first hill, stay in clear road zones, and leave
+      // recovery space between encounters. This keeps the slopes fun, not unfair.
+      const patrols = alternate
+        ? [
+            [1660, 1580, 1910],
+            [2290, 2200, 2490],
+            [2440, 2200, 2490],
+            [2910, 2820, 3230],
+            [3100, 2820, 3230],
+            [3600, 3510, 3730],
+          ]
+        : [
+            [1700, 1580, 1910],
+            [2320, 2200, 2490],
+            [2460, 2200, 2490],
+            [2940, 2820, 3230],
+            [3110, 2820, 3230],
+            [3590, 3510, 3730],
+          ];
+      for (const [localX, left, right] of patrols) {
+        monster(offset + localX, offset + left, offset + right);
+      }
     }
 
-    const SECTION_SPAN = 4300;
+    const SECTION_SPAN = SF_SECTION_SPAN;
     const buildSection = isSanFrancisco ? buildSanFranciscoSection : buildLosAngelesSection;
-    buildSection(0);
-    buildSection(SECTION_SPAN);
+    buildSection(0, 0);
+    buildSection(SECTION_SPAN, 1);
+
+    const pipeX = 3890 + SECTION_SPAN;
+    const pipeSurfaceY = terrainSurfaceYAt(pipeX + 77, levelNumber);
 
     return {
       blocks,
       collectibles,
       enemies,
-      pipe: { x: 3890 + SECTION_SPAN, y: SURFACE_Y - 190, w: 154, h: 190 },
+      pipe: { x: pipeX, y: pipeSurfaceY - 190, w: 154, h: 190 },
       totalBalls: collectibles.filter((item) => item.type === "ball").length + blocks.filter((item) => item.content === "ball").length,
       totalLattes: collectibles.filter((item) => item.type === "latte").length + blocks.filter((item) => item.content === "latte").length,
     };
@@ -901,7 +964,7 @@
     const fallSpeed = player.vy;
     player.y += player.vy * dt;
     player.onGround = false;
-    resolveVertical(player);
+    resolveVertical(player, wasOnGround);
     resolvePipeVertical(player);
 
     if (!wasOnGround && player.onGround && fallSpeed > 460) {
@@ -943,9 +1006,14 @@
     }
   }
 
-  function resolveVertical(player) {
-    if (player.y + player.h >= SURFACE_Y) {
-      player.y = SURFACE_Y - player.h;
+  function resolveVertical(player, wasOnGround = false) {
+    const surfaceY = terrainSurfaceYAt(player.x + player.w * 0.5);
+    const previousSurfaceY = terrainSurfaceYAt(player.prevX + player.w * 0.5);
+    const wasFollowingRoad = wasOnGround && Math.abs(player.prevY + player.h - previousSurfaceY) <= 4;
+    const roadGap = surfaceY - (player.y + player.h);
+    const canFollowDescent = wasFollowingRoad && player.vy >= 0 && roadGap >= 0 && roadGap <= 18;
+    if (player.y + player.h >= surfaceY || canFollowDescent) {
+      player.y = surfaceY - player.h;
       player.vy = 0;
       player.onGround = true;
     }
@@ -1089,6 +1157,7 @@
         enemy.vx *= -1;
         enemy.x = clamp(enemy.x, enemy.left, enemy.right - enemy.w);
       }
+      enemy.y = terrainSurfaceYAt(enemy.x + enemy.w * 0.5) - enemy.h;
 
       if (enemy.kind !== "hotdog") {
         continue;
@@ -1112,11 +1181,12 @@
     enemy.y += enemy.knockbackVy * dt;
     enemy.roll = (enemy.roll || 0) + ((enemy.knockbackVx || 0) / (enemy.w * 0.38)) * dt;
 
-    if (enemy.y + enemy.h < SURFACE_Y) {
+    const surfaceY = terrainSurfaceYAt(enemy.x + enemy.w * 0.5);
+    if (enemy.y + enemy.h < surfaceY) {
       return;
     }
 
-    enemy.y = SURFACE_Y - enemy.h;
+    enemy.y = surfaceY - enemy.h;
     if (enemy.knockbackVy > 180 && (enemy.kickBounces || 0) < 1) {
       enemy.knockbackVy *= -0.36;
       enemy.kickBounces = (enemy.kickBounces || 0) + 1;
@@ -1197,8 +1267,9 @@
         continue;
       }
 
-      if (projectile.y + projectile.h >= SURFACE_Y) {
-        projectile.y = SURFACE_Y - projectile.h;
+      const surfaceY = terrainSurfaceYAt(projectile.x + projectile.w * 0.5);
+      if (projectile.y + projectile.h >= surfaceY) {
+        projectile.y = surfaceY - projectile.h;
         if (projectile.bounces < 1) {
           projectile.vy = -Math.max(180, Math.abs(projectile.vy) * 0.34);
           projectile.bounces += 1;
@@ -1225,8 +1296,9 @@
       item.y += item.vy * dt;
       item.spin += item.vx * dt * 0.035;
 
-      if (item.y + item.h >= SURFACE_Y) {
-        item.y = SURFACE_Y - item.h;
+      const surfaceY = terrainSurfaceYAt(item.x + item.w * 0.5);
+      if (item.y + item.h >= surfaceY) {
+        item.y = surfaceY - item.h;
         if (item.vy > 260) {
           item.vy = -item.vy * 0.28;
         } else {
@@ -1240,7 +1312,7 @@
         item.vx *= -0.45;
       }
 
-      if (Math.abs(item.vx) < 12 && Math.abs(item.vy) < 12 && item.y + item.h >= SURFACE_Y - 1) {
+      if (Math.abs(item.vx) < 12 && Math.abs(item.vy) < 12 && item.y + item.h >= surfaceY - 1) {
         item.vx = 0;
         item.vy = 0;
         item.kicked = false;
@@ -1426,7 +1498,8 @@
     const pipe = state.pipe;
     const pipeBody = pipeSolidBounds();
     const playerCenter = player.x + player.w / 2;
-    const atPipeFront = player.x + player.w >= pipeBody.x - 14 && player.x < pipeBody.x && player.y + player.h >= SURFACE_Y - 4;
+    const roadYAtPlayer = terrainSurfaceYAt(playerCenter);
+    const atPipeFront = player.x + player.w >= pipeBody.x - 14 && player.x < pipeBody.x && player.y + player.h >= roadYAtPlayer - 4;
     const onPipeTop = playerCenter >= pipeBody.x && playerCenter <= pipeBody.x + pipeBody.w && Math.abs(player.y + player.h - pipeBody.y) <= 3;
     const atPipe = atPipeFront || onPipeTop;
     if (!atPipe) {
@@ -1588,7 +1661,7 @@
 
   function createRunnerSnapshot() {
     return {
-      version: 10,
+      version: 11,
       level: state.level,
       characterIndex: selectedCharacterIndex,
       cameraX: state.cameraX,
@@ -1618,7 +1691,7 @@
     }
     try {
       const snapshot = JSON.parse(raw);
-      return snapshot && snapshot.version === 10 ? snapshot : null;
+      return snapshot && snapshot.version === 11 ? snapshot : null;
     } catch {
       return null;
     }
@@ -1657,7 +1730,8 @@
     const crouching = Boolean(restored.crouching);
     const { w, h } = playerBodySize(poweredUp, crouching);
     const x = clamp(Number(restored.x) || 128, 8, WORLD_W - w - 8);
-    const y = clamp(Number(restored.y) || SURFACE_Y - h, -VIEW_H, SURFACE_Y - h);
+    const surfaceY = terrainSurfaceYAt(x + w * 0.5);
+    const y = clamp(Number(restored.y) || surfaceY - h, -VIEW_H, surfaceY - h);
     return {
       x,
       y,
@@ -1699,7 +1773,7 @@
     player.w = targetW;
     player.h = targetH;
     player.x = clamp(centerX - targetW * 0.5, 8, WORLD_W - targetW - 8);
-    player.y = Math.min(bottomY - targetH, SURFACE_Y - targetH);
+    player.y = Math.min(bottomY - targetH, terrainSurfaceYAt(player.x + targetW * 0.5) - targetH);
     player.prevX = player.x;
     player.prevY = player.y;
   }
@@ -1738,7 +1812,7 @@
     const player = state.player;
     const pipe = state.pipe;
     player.x = clamp(pipe.x + pipe.w + 28, 8, WORLD_W - player.w - 8);
-    player.y = SURFACE_Y - player.h;
+    player.y = terrainSurfaceYAt(player.x + player.w * 0.5) - player.h;
     player.prevX = player.x;
     player.prevY = player.y;
     player.vx = 0;
@@ -1777,7 +1851,7 @@
     }
     if (resetPosition) {
       player.x = Math.max(PLAYER_START_X, player.checkpointX);
-      player.y = SURFACE_Y - player.h;
+      player.y = terrainSurfaceYAt(player.x + player.w * 0.5) - player.h;
       player.vx = 0;
       player.vy = 0;
     } else {
@@ -2081,6 +2155,11 @@
   }
 
   function drawGround() {
+    if (state.level === 2) {
+      drawSanFranciscoRoad();
+      return;
+    }
+
     if (isArtReady("groundTile")) {
       const img = art.groundTile;
       const cropY = 32;
@@ -2142,6 +2221,79 @@
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+  }
+
+  function traceSanFranciscoRoad(offsetY = 0) {
+    const startX = Math.max(0, Math.floor((state.cameraX - 100) / 16) * 16);
+    const endX = Math.min(WORLD_W, Math.ceil((state.cameraX + VIEW_W + 100) / 16) * 16);
+    ctx.beginPath();
+    ctx.moveTo(startX, terrainSurfaceYAt(startX, 2) + offsetY);
+    for (let x = startX + 16; x <= endX; x += 16) {
+      ctx.lineTo(x, terrainSurfaceYAt(x, 2) + offsetY);
+    }
+    return { startX, endX };
+  }
+
+  function drawSanFranciscoRoad() {
+    const { startX, endX } = traceSanFranciscoRoad();
+    ctx.lineTo(endX, VIEW_H + 80);
+    ctx.lineTo(startX, VIEW_H + 80);
+    ctx.closePath();
+    const foundation = ctx.createLinearGradient(0, SURFACE_Y - 70, 0, VIEW_H);
+    foundation.addColorStop(0, "#4f5965");
+    foundation.addColorStop(0.45, "#303844");
+    foundation.addColorStop(1, "#17202a");
+    ctx.fillStyle = foundation;
+    ctx.fill();
+
+    for (let x = Math.floor(startX / 96) * 96; x <= endX + 96; x += 96) {
+      const topY = terrainSurfaceYAt(x + 48, 2) + 52;
+      ctx.strokeStyle = "rgba(10, 17, 25, 0.42)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 3, topY, 90, 52);
+      ctx.strokeRect(x + 16, topY + 58, 76, 44);
+      ctx.fillStyle = "rgba(198, 217, 230, 0.08)";
+      ctx.fillRect(x + 12, topY + 11, 24, 5);
+      ctx.fillRect(x + 56, topY + 72, 20, 5);
+    }
+
+    traceSanFranciscoRoad(2);
+    ctx.lineTo(endX, terrainSurfaceYAt(endX, 2) + 48);
+    for (let x = endX; x >= startX; x -= 16) {
+      ctx.lineTo(x, terrainSurfaceYAt(x, 2) + 48);
+    }
+    ctx.closePath();
+    const asphalt = ctx.createLinearGradient(0, SURFACE_Y - 72, 0, SURFACE_Y + 48);
+    asphalt.addColorStop(0, "#65717d");
+    asphalt.addColorStop(0.3, "#46515c");
+    asphalt.addColorStop(1, "#242d36");
+    ctx.fillStyle = asphalt;
+    ctx.fill();
+
+    traceSanFranciscoRoad(1);
+    ctx.strokeStyle = "#d7e0e6";
+    ctx.lineWidth = 7;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    traceSanFranciscoRoad(8);
+    ctx.strokeStyle = "rgba(24, 33, 43, 0.92)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    traceSanFranciscoRoad(31);
+    ctx.strokeStyle = "rgba(255, 204, 54, 0.92)";
+    ctx.lineWidth = 4;
+    ctx.setLineDash([34, 25]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    traceSanFranciscoRoad(17);
+    ctx.strokeStyle = "rgba(196, 219, 232, 0.78)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    traceSanFranciscoRoad(42);
+    ctx.strokeStyle = "rgba(10, 16, 24, 0.62)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
   }
 
   function drawBlocks() {
@@ -3971,6 +4123,20 @@
       level: {
         number: state.level,
         city: state.level === 2 ? "San Francisco" : "Los Angeles",
+      },
+      road: {
+        style: state.level === 2 ? "sf-asphalt-hills" : "la-flat-grass",
+        surfaceY: Math.round(terrainSurfaceYAt(state.player.x + state.player.w * 0.5)),
+        visibleRamps: state.level === 2
+          ? SF_ROAD_PROFILE
+              .filter((segment) => segment.fromY !== segment.toY)
+              .map((segment) => ({
+                startX: segment.start + Math.floor(state.cameraX / SF_SECTION_SPAN) * SF_SECTION_SPAN,
+                endX: segment.end + Math.floor(state.cameraX / SF_SECTION_SPAN) * SF_SECTION_SPAN,
+                direction: segment.toY < segment.fromY ? "up" : "down",
+              }))
+              .filter((segment) => segment.endX >= state.cameraX && segment.startX <= state.cameraX + VIEW_W)
+          : [],
       },
       coordinateSystem: "canvas/world pixels, origin top-left, x right, y down",
       cameraFraming: isPhoneViewport() ? "phone-centered" : "desktop-forward",
