@@ -51,7 +51,7 @@
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "sf-road-ramps-2026-07-20-27";
+  const BUILD_ID = "sf-road-no-yellow-markings-2026-07-20-28";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILES = {
@@ -2279,13 +2279,6 @@
     ctx.strokeStyle = "rgba(24, 33, 43, 0.92)";
     ctx.lineWidth = 4;
     ctx.stroke();
-    traceSanFranciscoRoad(31);
-    ctx.strokeStyle = "rgba(255, 204, 54, 0.92)";
-    ctx.lineWidth = 4;
-    ctx.setLineDash([34, 25]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
     traceSanFranciscoRoad(17);
     ctx.strokeStyle = "rgba(196, 219, 232, 0.78)";
     ctx.lineWidth = 2;
