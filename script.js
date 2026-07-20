@@ -35,7 +35,7 @@
   const PLAYER_CROUCH_HEIGHT_SCALE = 0.82;
   const POWERED_PASSAGE_GAP = Math.ceil(PLAYER_W * PLAYER_POWER_SCALE) + 24;
   const SHOW_PARTICLE_SPLASHES = false;
-  const BUILD_ID = "sf-level-two-2026-07-18-24";
+  const BUILD_ID = "test-level-selector-2026-07-19-26";
   const FRAME_ASSET_VERSION = BUILD_ID;
   const ART_ROOT = "extracted_game_art_elements";
   const LEVEL_BACKDROP_FILES = {
@@ -43,6 +43,8 @@
     2: "assets/sf_level_backdrop.png",
   };
   const SHOW_CHARACTER_SELECTOR = true;
+  // Testing-only control: set to false to remove the web level selector.
+  const SHOW_TEST_LEVEL_SELECTOR = true;
   const SHOW_RESPONSE_LABEL = false;
   const TEMP_HIDDEN_CHARACTER_IDS = new Set(["pilot"]);
   const PENALTY_PAGE = "penaltykick.html?from=runner";
@@ -52,6 +54,7 @@
   const PENALTY_RETURN_KEY = "dpaiPenaltyReturn";
   const AUTOSAVE_KEY = "dpaiRunnerAutosave";
   let selectedCharacterIndex = 0;
+  let selectedTestLevel = 1;
   let resetConfirmReturnMode = null;
   const assetStatus = new Map();
 
@@ -440,6 +443,34 @@
     return currentCharacter().crops;
   }
 
+  function updateTestLevelSelector() {
+    const wrapper = document.querySelector("[data-test-level-selector]");
+    const select = document.querySelector("[data-test-level-select]");
+    if (!wrapper || !select) {
+      return;
+    }
+    const selectableMode = state.mode === "title" || state.mode === "won" || state.mode === "lost";
+    wrapper.hidden = !SHOW_TEST_LEVEL_SELECTOR || !selectableMode;
+    select.value = String(selectedTestLevel);
+  }
+
+  function bindTestLevelSelector() {
+    const select = document.querySelector("[data-test-level-select]");
+    if (!select) {
+      return;
+    }
+    select.addEventListener("change", () => {
+      if (!SHOW_TEST_LEVEL_SELECTOR) {
+        return;
+      }
+      selectedTestLevel = Number(select.value) === 2 ? 2 : 1;
+      clearRunStorage();
+      resetInputState();
+      resetGame("title", selectedTestLevel);
+    });
+    updateTestLevelSelector();
+  }
+
   function resetGame(mode = "title", levelNumber = 1, carry = {}) {
     const normalizedLevel = levelNumber === 2 ? 2 : 1;
     const level = createLevel(normalizedLevel);
@@ -493,6 +524,7 @@
     state.pipe = level.pipe;
     state.particles = [];
     state.cameraX = clampCameraX(cameraTargetX());
+    updateTestLevelSelector();
   }
 
   function createLevel(levelNumber = 1) {
@@ -663,8 +695,9 @@
     }
     clearRunStorage();
     resetInputState();
-    resetGame("playing");
-    toast("Level 1: Los Angeles");
+    const startLevel = SHOW_TEST_LEVEL_SELECTOR ? selectedTestLevel : 1;
+    resetGame("playing", startLevel);
+    toast(startLevel === 2 ? "Level 2: San Francisco" : "Level 1: Los Angeles");
   }
 
   function resetToInitialState() {
@@ -672,7 +705,7 @@
     clearRunStorage();
     resetInputState();
     selectedCharacterIndex = 0;
-    resetGame("title");
+    resetGame("title", SHOW_TEST_LEVEL_SELECTOR ? selectedTestLevel : 1);
   }
 
   function requestResetConfirmation() {
@@ -2699,10 +2732,12 @@
     ctx.lineWidth = 7;
     ctx.strokeStyle = "#10223b";
     ctx.fillStyle = "#ffffff";
-    ctx.strokeText("LEVEL 1", VIEW_W / 2, 190);
-    ctx.fillText("LEVEL 1", VIEW_W / 2, 190);
-    ctx.strokeText("LOS ANGELES", VIEW_W / 2, 236);
-    ctx.fillText("LOS ANGELES", VIEW_W / 2, 236);
+    const levelTitle = state.level === 2 ? "LEVEL II" : "LEVEL I";
+    const cityTitle = state.level === 2 ? "SAN FRANCISCO" : "LOS ANGELES";
+    ctx.strokeText(levelTitle, VIEW_W / 2, 190);
+    ctx.fillText(levelTitle, VIEW_W / 2, 190);
+    ctx.strokeText(cityTitle, VIEW_W / 2, 236);
+    ctx.fillText(cityTitle, VIEW_W / 2, 236);
 
     if (SHOW_CHARACTER_SELECTOR) {
       drawCharacterSelector();
@@ -2766,8 +2801,8 @@
     ctx.lineWidth = Math.max(4, 6 * scale);
     ctx.strokeStyle = "#10223b";
     ctx.fillStyle = "#ffffff";
-    strokeFillText("LEVEL 1", cx, logoY + logoH + (landscape ? 4 : 12));
-    strokeFillText("LOS ANGELES", cx, logoY + logoH + (landscape ? 32 : 48 * scale));
+    strokeFillText(state.level === 2 ? "LEVEL II" : "LEVEL I", cx, logoY + logoH + (landscape ? 4 : 12));
+    strokeFillText(state.level === 2 ? "SAN FRANCISCO" : "LOS ANGELES", cx, logoY + logoH + (landscape ? 32 : 48 * scale));
 
     const selectorY = logoY + logoH + (landscape ? 80 : 105 * scale);
     if (SHOW_CHARACTER_SELECTOR) {
@@ -3542,6 +3577,10 @@
   }
 
   function handleKeyDown(event) {
+    if (event.target instanceof HTMLSelectElement) {
+      return;
+    }
+
     const code = event.code;
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(code)) {
       event.preventDefault();
@@ -3865,6 +3904,7 @@
   bindTouchControls();
   bindTouchJoystick();
   bindMobileZoomLock();
+  bindTestLevelSelector();
 
   function renderGameToText() {
     const camera = state.cameraX;
@@ -3991,6 +4031,10 @@
       levelTwoChoice: {
         promptVisible: state.mode === "levelChoice",
         unlockedByPenaltyWin: state.levelTwoUnlocked || state.level === 2,
+      },
+      testing: {
+        levelSelectorEnabled: SHOW_TEST_LEVEL_SELECTOR,
+        selectedStartLevel: selectedTestLevel,
       },
       resetConfirmation: {
         promptVisible: state.mode === "resetConfirm",

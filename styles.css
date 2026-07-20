@@ -69,6 +69,41 @@ body {
   box-shadow: 0 3px 8px rgba(0, 23, 69, 0.24), inset 0 2px 8px rgba(0, 0, 0, 0.22);
 }
 
+.test-level-selector {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: max(12px, env(safe-area-inset-left, 0px));
+  z-index: 5;
+  display: grid;
+  gap: 5px;
+  min-width: 218px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  padding: 9px 11px 11px;
+  background: linear-gradient(180deg, rgba(21, 101, 206, 0.94), rgba(10, 50, 126, 0.94));
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 23, 69, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.26);
+  font: 900 12px/1.1 Arial Black, Arial, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.test-level-selector[hidden] {
+  display: none;
+}
+
+.test-level-selector select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: #ffffff;
+  color: #102b59;
+  font: 800 14px/1.2 Arial, sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
 :fullscreen .reset-btn {
   top: max(12px, env(safe-area-inset-top, 0px));
   right: max(12px, env(safe-area-inset-right, 0px));
@@ -129,6 +164,16 @@ canvas {
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+  }
+
+  .test-level-selector {
+    min-width: min(206px, calc(100vw - 112px));
+    padding: 7px 9px 9px;
+  }
+
+  .test-level-selector select {
+    padding: 6px 7px;
+    font-size: 13px;
   }
 
   .virtual-joystick {

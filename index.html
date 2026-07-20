@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
     <title>dp.AI City Run</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="styles.css?v=mobile-joystick-2026-07-14-16" />
+    <link rel="stylesheet" href="styles.css?v=test-level-selector-2026-07-19-26" />
   </head>
   <body>
     <main class="game-shell" aria-label="dp.AI City Run game">
@@ -15,6 +15,13 @@
         height="720"
         aria-label="Side-scrolling platform game canvas"
       ></canvas>
+      <label class="test-level-selector" data-test-level-selector hidden>
+        <span>Test level</span>
+        <select data-test-level-select aria-label="Select a level for testing">
+          <option value="1">Level I · Los Angeles</option>
+          <option value="2">Level II · San Francisco</option>
+        </select>
+      </label>
       <button class="reset-btn" type="button" data-control="reset" aria-label="Reset game">⟲ Reset</button>
       <div class="mobile-controls" aria-label="Touch controls">
         <div class="virtual-joystick" data-joystick role="group" aria-label="Movement joystick">
@@ -29,6 +36,6 @@
         </div>
       </div>
     </main>
-    <script src="script.js?v=sf-level-two-2026-07-18-24"></script>
+    <script src="script.js?v=test-level-selector-2026-07-19-26"></script>
   </body>
 </html>
